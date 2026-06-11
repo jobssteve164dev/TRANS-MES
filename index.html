@@ -1,416 +1,1037 @@
 <!DOCTYPE html>
-<html lang="zh-CN" class="dark h-full">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TRANS-MES | 物体搬运通道仿真与尺寸评估工具</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;700;950&display=swap" rel="stylesheet">
+  
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
   <!-- Three.js & OrbitControls -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/controls/OrbitControls.min.js"></script>
+  
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   
   <style>
+    /* --- 1. 全局样式与变量 --- */
+    :root {
+      --bg-main: #05070c;
+      --bg-panel: rgba(13, 20, 35, 0.75);
+      --bg-sidebar: #090d16;
+      --border-color: rgba(255, 255, 255, 0.05);
+      --border-hover: rgba(6, 182, 212, 0.4);
+      --text-main: #e2e8f0;
+      --text-muted: #64748b;
+      --brand-cyan: #06b6d4;
+      --brand-purple: #a855f7;
+      --brand-amber: #f59e0b;
+      --brand-red: #ef4444;
+      --brand-emerald: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      font-family: 'Inter', sans-serif;
-      background-color: #05070c;
-      color: #e2e8f0;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
     }
+
     .font-tech {
-      font-family: 'Orbitron', sans-serif;
+      font-family: 'Orbitron', monospace;
     }
-    /* 玻璃拟态卡片 */
-    .glass-panel {
-      background: rgba(13, 18, 30, 0.8);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
+    /* --- 2. 现代科技布局框架 --- */
+    .app-header {
+      height: 64px;
+      background: rgba(6, 9, 17, 0.95);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 10;
+      flex-shrink: 0;
     }
-    /* 侧边栏Tab激活状态 */
-    .tab-active {
-      background: rgba(6, 182, 212, 0.1);
-      border-color: rgba(6, 182, 212, 0.4);
-      color: #06b6d4;
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
-    /* 自定义滚动条 */
-    ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--brand-cyan), var(--brand-purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+      color: white;
     }
-    ::-webkit-scrollbar-track {
-      background: rgba(5, 7, 12, 0.5);
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      background: linear-gradient(to right, var(--brand-cyan), var(--brand-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(148, 163, 184, 0.15);
-      border-radius: 4px;
+
+    .brand-subtitle {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 1px;
     }
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(6, 182, 212, 0.3);
+
+    .app-main {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      overflow: hidden;
+      position: relative;
     }
-    /* 霓虹发光文字与线条 */
-    .glow-text-cyan {
-      text-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+
+    /* 侧边栏 */
+    .sidebar {
+      width: 320px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
     }
-    .glow-border-cyan {
-      box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+
+    /* 侧边栏 Tabs */
+    .sidebar-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border-bottom: 1px solid var(--border-color);
     }
-  </style>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              cyan: '#06b6d4',
-              purple: '#a855f7',
-              dark: '#05070c',
-            }
-          }
-        }
+
+    .tab-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 8px 0;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+    }
+
+    .tab-btn.active {
+      background: rgba(6, 182, 212, 0.08);
+      border-color: rgba(6, 182, 212, 0.3);
+      color: var(--brand-cyan);
+    }
+
+    .sidebar-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .panel-section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* 主要内容渲染视口 */
+    .viewport-area {
+      flex: 1;
+      background: #020306;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* 2D & 3D 分屏联动 */
+    .split-layout {
+      flex: 1;
+      display: flex;
+      gap: 16px;
+      height: 100%;
+      min-height: 0;
+    }
+
+    @media (max-width: 900px) {
+      .split-layout {
+        flex-direction: column;
       }
     }
-  </script>
+
+    /* 玻璃卡片 */
+    .glass-card {
+      flex: 1;
+      background: var(--bg-panel);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .card-header {
+      height: 48px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .card-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .dot.cyan { background-color: var(--brand-cyan); }
+    .dot.purple { background-color: var(--brand-purple); }
+
+    .card-content {
+      flex: 1;
+      position: relative;
+      background: rgba(0, 0, 0, 0.08);
+      min-height: 0;
+    }
+
+    /* --- 3. 控件及滑块样式 --- */
+    .form-group {
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      padding: 12px;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .input-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    .val-display {
+      font-weight: 700;
+      color: var(--brand-cyan);
+    }
+    
+    .val-display.purple {
+      color: var(--brand-purple);
+    }
+
+    /* 极其精美的滑块 */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      outline: none;
+      margin: 8px 0;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 2.5px solid var(--brand-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.8);
+      transition: transform 0.1s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    input[type="range"].accent-purple::-webkit-slider-thumb {
+      border-color: var(--brand-purple);
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.8);
+    }
+
+    /* 下拉框 & 按钮 */
+    select, input[type="number"] {
+      width: 100%;
+      background: #090d16;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text-main);
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    select:focus, input[type="number"]:focus {
+      border-color: var(--brand-cyan);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      padding: 8px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      outline: none;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, var(--brand-cyan), #0284c7);
+      border: none;
+      color: white;
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.2);
+    }
+
+    .btn.primary:hover {
+      opacity: 0.95;
+      box-shadow: 0 0 18px rgba(6, 182, 212, 0.4);
+    }
+
+    .btn.amber {
+      background: rgba(245, 158, 11, 0.1);
+      border-color: rgba(245, 158, 11, 0.3);
+      color: var(--brand-amber);
+    }
+
+    .btn.amber:hover {
+      background: rgba(245, 158, 11, 0.2);
+    }
+
+    .btn-icon-only {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      padding: 0;
+    }
+
+    /* 障碍列表项 */
+    .obs-item {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .obs-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .obs-name {
+      font-size: 11px;
+      font-weight: 700;
+      color: #cbd5e1;
+    }
+
+    .obs-meta {
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    .obs-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .obs-badge {
+      font-size: 9px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--text-muted);
+    }
+
+    .delete-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+    }
+
+    .delete-btn:hover {
+      color: var(--brand-red);
+    }
+
+    /* --- 4. 评估报告与分析视图 --- */
+    .assess-layout {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-width: 1000px;
+      margin: 0 auto;
+      width: 100%;
+      overflow-y: auto;
+      padding-bottom: 24px;
+    }
+
+    .cards-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .cards-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .stat-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 16px;
+      position: relative;
+    }
+
+    .stat-title {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-val-group {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      margin-top: 10px;
+    }
+
+    .stat-val {
+      font-size: 28px;
+      font-weight: 850;
+    }
+
+    .stat-val.cyan { color: var(--brand-cyan); }
+    .stat-val.purple { color: var(--brand-purple); }
+    .stat-val.amber { color: var(--brand-amber); }
+    .stat-val.red { color: var(--brand-red); }
+
+    .stat-unit {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .stat-desc {
+      font-size: 9px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 850px) {
+      .analysis-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .chart-panel {
+      min-height: 300px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .chart-container {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      min-height: 250px;
+    }
+
+    .report-panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .report-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      color: #cbd5e1;
+    }
+
+    .report-item {
+      padding: 10px;
+      background: rgba(0,0,0,0.15);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .report-label {
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    .report-val {
+      font-size: 11px;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    /* --- 5. 导航与状态栏页签 --- */
+    .main-navigation {
+      display: flex;
+      background: rgba(0,0,0,0.3);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    .nav-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 6px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .nav-btn.active {
+      background: rgba(6, 182, 212, 0.08);
+      color: var(--brand-cyan);
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px;
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      background: rgba(0,0,0,0.2);
+      font-size: 11px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--brand-emerald);
+    }
+
+    .status-dot.pulse {
+      animation: pulse-dot 1.5s infinite;
+    }
+
+    @keyframes pulse-dot {
+      0% { opacity: 0.5; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.1); }
+      100% { opacity: 0.5; transform: scale(0.9); }
+    }
+
+    /* --- 6. 模态窗口样式 --- */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal-card {
+      width: 440px;
+      background: #0b1120;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .modal-card.large {
+      width: 600px;
+      max-height: 80vh;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+    }
+
+    .modal-title {
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .modal-close:hover {
+      color: white;
+    }
+
+    .modal-body {
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      border-top: 1px solid var(--border-color);
+      padding-top: 12px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
 </head>
-<body class="h-full overflow-hidden flex flex-col">
+<body>
 
   <!-- 顶部 Header -->
-  <header class="h-16 shrink-0 border-b border-slate-900 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between z-10">
-    <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-brand-cyan to-brand-purple flex items-center justify-center shadow-lg shadow-cyan-500/20">
-        <i data-lucide="route" class="w-5 h-5 text-white"></i>
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-logo">
+        <i data-lucide="route" style="width: 20px; height: 20px;"></i>
       </div>
       <div>
-        <h1 class="text-lg font-bold font-tech tracking-wider bg-gradient-to-r from-brand-cyan to-brand-purple bg-clip-text text-transparent">TRANS-MES</h1>
-        <p class="text-xs text-slate-400">物料搬运通道仿真与尺寸评估系统</p>
+        <h1 class="brand-title font-tech">TRANS-MES</h1>
+        <p class="brand-subtitle">物料搬运通道仿真与尺寸评估系统</p>
       </div>
     </div>
     
-    <!-- 顶部大导航页签 -->
-    <div class="flex items-center gap-2 bg-slate-900/60 p-1 rounded-xl border border-slate-800">
-      <button onclick="switchMainTab('simulation')" id="tab_simulation" class="px-5 py-1.5 text-xs font-semibold rounded-lg bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan transition-all">
-        <i data-lucide="monitor-play" class="w-3.5 h-3.5 inline mr-1.5 -mt-0.5"></i>实时仿真沙盘
+    <!-- 大页签 -->
+    <div class="main-navigation">
+      <button onclick="switchMainTab('simulation')" id="tab_simulation" class="nav-btn active">
+        <i data-lucide="monitor-play" style="width: 14px; height: 14px;"></i>
+        <span>仿真沙盘</span>
       </button>
-      <button onclick="switchMainTab('assess')" id="tab_assess" class="px-5 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition-all">
-        <i data-lucide="trending-up" class="w-3.5 h-3.5 inline mr-1.5 -mt-0.5"></i>极限尺寸评估
+      <button onclick="switchMainTab('assess')" id="tab_assess" class="nav-btn">
+        <i data-lucide="trending-up" style="width: 14px; height: 14px;"></i>
+        <span>尺寸评估</span>
       </button>
     </div>
 
-    <div class="flex items-center gap-4">
-      <div id="statusBadge" class="flex items-center gap-2 px-3 h-8 rounded-full border border-slate-800 bg-slate-900/50 text-xs">
-        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span class="text-slate-300">系统就绪</span>
+    <!-- 状态指示 -->
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <div id="statusBadge" class="status-badge">
+        <span class="status-dot pulse"></span>
+        <span style="color: #cbd5e1; font-weight: 500;">系统就绪</span>
       </div>
-      <div class="h-4 w-[1px] bg-slate-800"></div>
-      <button onclick="toggleHandoffDoc()" class="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors">
-        <i data-lucide="help-circle" class="w-4 h-4"></i>
-        <span>使用说明</span>
+      <div style="width: 1px; height: 16px; background-color: var(--border-color);"></div>
+      <button onclick="toggleHandoffDoc()" class="btn" style="padding: 6px 12px; border-radius: 12px;">
+        <i data-lucide="help-circle" style="width: 14px; height: 14px;"></i>
+        <span>说明</span>
       </button>
     </div>
   </header>
 
-  <!-- 主体工作区 -->
-  <main class="flex-1 flex overflow-hidden min-h-0 relative">
+  <!-- 主工作区 -->
+  <main class="app-main">
     
-    <!-- 左侧参数控制面板 (采用分类Tabs) -->
-    <aside class="w-80 shrink-0 border-r border-slate-900 bg-[#090d16]/60 flex flex-col h-full z-10" id="sidebar">
-      <!-- 控制面板页签 -->
-      <div class="grid grid-cols-3 gap-1 p-3 border-b border-slate-900 shrink-0 bg-slate-950/20">
-        <button onclick="switchControlTab('channel')" id="ctab_channel" class="py-2 text-xs font-medium border border-transparent rounded-lg text-slate-400 hover:text-white transition-all text-center tab-active">
-          通道
-        </button>
-        <button onclick="switchControlTab('object')" id="ctab_object" class="py-2 text-xs font-medium border border-transparent rounded-lg text-slate-400 hover:text-white transition-all text-center">
-          物体
-        </button>
-        <button onclick="switchControlTab('obstacle')" id="ctab_obstacle" class="py-2 text-xs font-medium border border-transparent rounded-lg text-slate-400 hover:text-white transition-all text-center">
-          障碍
-        </button>
+    <!-- 左侧控制面板 -->
+    <aside class="sidebar">
+      <div class="sidebar-tabs">
+        <button onclick="switchControlTab('channel')" id="ctab_channel" class="tab-btn active">通道设计</button>
+        <button onclick="switchControlTab('object')" id="ctab_object" class="tab-btn">搬运物体</button>
+        <button onclick="switchControlTab('obstacle')" id="ctab_obstacle" class="tab-btn">杂物管理</button>
       </div>
 
-      <!-- 参数表单容器 -->
-      <div class="flex-1 overflow-y-auto p-4">
+      <div class="sidebar-content">
         
-        <!-- 1. 通道参数面板 -->
-        <div id="panel_channel" class="space-y-4">
-          <div class="flex justify-between items-center mb-1">
-            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">通道尺寸配置</span>
-            <span class="text-[10px] text-slate-500 font-tech">cm</span>
+        <!-- 1. 通道表单 -->
+        <div id="panel_channel" class="panel-section">
+          <div class="panel-title">
+            <span>通道参数</span>
+            <span class="font-tech">CM</span>
           </div>
 
-          <div class="space-y-3.5 bg-slate-900/20 p-3 rounded-xl border border-slate-900">
-            <div>
-              <div class="flex justify-between text-xs mb-1">
-                <span class="text-slate-400">直道 1 长度 (水平)</span>
-                <span class="font-tech text-brand-cyan" id="val_l1">500</span>
+          <div class="form-group">
+            <div class="input-row">
+              <div class="label-row">
+                <span>直道 1 长度</span>
+                <span class="font-tech val-display" id="val_l1">500</span>
               </div>
-              <input type="range" id="input_l1" min="200" max="1000" step="10" value="500" class="w-full accent-cyan-500">
+              <input type="range" id="input_l1" min="200" max="1000" step="10" value="500">
             </div>
             
-            <div>
-              <div class="flex justify-between text-xs mb-1">
-                <span class="text-slate-400">直道 1 宽度</span>
-                <span class="font-tech text-brand-cyan" id="val_w1">150</span>
+            <div class="input-row">
+              <div class="label-row">
+                <span>直道 1 宽度</span>
+                <span class="font-tech val-display" id="val_w1">150</span>
               </div>
-              <input type="range" id="input_w1" min="80" max="300" step="5" value="150" class="w-full accent-cyan-500">
+              <input type="range" id="input_w1" min="80" max="300" step="5" value="150">
             </div>
 
-            <div>
-              <div class="flex justify-between text-xs mb-1">
-                <span class="text-slate-400">直道 2 长度 (偏转)</span>
-                <span class="font-tech text-brand-cyan" id="val_l2">500</span>
+            <div class="input-row">
+              <div class="label-row">
+                <span>直道 2 长度</span>
+                <span class="font-tech val-display" id="val_l2">500</span>
               </div>
-              <input type="range" id="input_l2" min="200" max="1000" step="10" value="500" class="w-full accent-cyan-500">
+              <input type="range" id="input_l2" min="200" max="1000" step="10" value="500">
             </div>
 
-            <div>
-              <div class="flex justify-between text-xs mb-1">
-                <span class="text-slate-400">直道 2 宽度</span>
-                <span class="font-tech text-brand-cyan" id="val_w2">150</span>
+            <div class="input-row">
+              <div class="label-row">
+                <span>直道 2 宽度</span>
+                <span class="font-tech val-display" id="val_w2">150</span>
               </div>
-              <input type="range" id="input_w2" min="80" max="300" step="5" value="150" class="w-full accent-cyan-500">
+              <input type="range" id="input_w2" min="80" max="300" step="5" value="150">
             </div>
 
-            <div>
-              <div class="flex justify-between text-xs mb-1">
-                <span class="text-slate-400">拐角偏转角度</span>
-                <span class="font-tech text-brand-cyan" id="val_angle">90°</span>
+            <div class="input-row">
+              <div class="label-row">
+                <span>拐角偏角</span>
+                <span class="font-tech val-display" id="val_angle">90°</span>
               </div>
-              <input type="range" id="input_angle" min="30" max="150" step="5" value="90" class="w-full accent-cyan-500">
+              <input type="range" id="input_angle" min="30" max="150" step="5" value="90">
             </div>
 
-            <div>
-              <div class="flex justify-between text-xs mb-1">
-                <span class="text-slate-400">通道高度限值</span>
-                <span class="font-tech text-brand-cyan" id="val_hchannel">220</span>
+            <div class="input-row">
+              <div class="label-row">
+                <span>通道高度</span>
+                <span class="font-tech val-display" id="val_hchannel">220</span>
               </div>
-              <input type="range" id="input_hchannel" min="150" max="400" step="10" value="220" class="w-full accent-cyan-500">
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. 物体参数面板 -->
-        <div id="panel_object" class="space-y-4 hidden">
-          <div class="flex justify-between items-center mb-1">
-            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">物体外形配置</span>
-            <span class="text-[10px] text-slate-500 font-tech">cm</span>
-          </div>
-
-          <div class="space-y-3.5 bg-slate-900/20 p-3 rounded-xl border border-slate-900">
-            <div>
-              <div class="flex justify-between text-xs mb-1">
-                <span class="text-slate-400">物体长度 (L)</span>
-                <span class="font-tech text-brand-purple" id="val_objL">180</span>
-              </div>
-              <input type="range" id="input_objL" min="20" max="400" step="5" value="180" class="w-full accent-purple-500">
-            </div>
-
-            <div>
-              <div class="flex justify-between text-xs mb-1">
-                <span class="text-slate-400">物体宽度 (W)</span>
-                <span class="font-tech text-brand-purple" id="val_objW">60</span>
-              </div>
-              <input type="range" id="input_objW" min="10" max="250" step="5" value="60" class="w-full accent-purple-500">
-            </div>
-
-            <div>
-              <div class="flex justify-between text-xs mb-1">
-                <span class="text-slate-400">物体高度 (H)</span>
-                <span class="font-tech text-brand-purple" id="val_objH">80</span>
-              </div>
-              <input type="range" id="input_objH" min="10" max="300" step="5" value="80" class="w-full accent-purple-500">
-            </div>
-
-            <div>
-              <div class="flex justify-between text-xs mb-1">
-                <span class="text-slate-400">搬运离地高度 (Z)</span>
-                <span class="font-tech text-brand-purple" id="val_objZ">10</span>
-              </div>
-              <input type="range" id="input_objZ" min="0" max="150" step="5" value="10" class="w-full accent-purple-500">
+              <input type="range" id="input_hchannel" min="150" max="400" step="10" value="220">
             </div>
           </div>
         </div>
 
-        <!-- 3. 障碍配置面板 -->
-        <div id="panel_obstacle" class="space-y-4 hidden">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">障碍物管理</span>
-            <button onclick="addDefaultObstacles()" class="text-xs text-amber-500 hover:text-amber-400 font-medium flex items-center gap-0.5">
-              <i data-lucide="plus" class="w-3.5 h-3.5"></i> 载入预设
+        <!-- 2. 物体表单 -->
+        <div id="panel_object" class="panel-section hidden">
+          <div class="panel-title">
+            <span>外轮廓尺寸</span>
+            <span class="font-tech">CM</span>
+          </div>
+
+          <div class="form-group">
+            <div class="input-row">
+              <div class="label-row">
+                <span>物体长度 (L)</span>
+                <span class="font-tech val-display purple" id="val_objL">180</span>
+              </div>
+              <input type="range" id="input_objL" min="20" max="400" step="5" value="180" class="accent-purple">
+            </div>
+
+            <div class="input-row">
+              <div class="label-row">
+                <span>物体宽度 (W)</span>
+                <span class="font-tech val-display purple" id="val_objW">60</span>
+              </div>
+              <input type="range" id="input_objW" min="10" max="250" step="5" value="60" class="accent-purple">
+            </div>
+
+            <div class="input-row">
+              <div class="label-row">
+                <span>物体高度 (H)</span>
+                <span class="font-tech val-display purple" id="val_objH">80</span>
+              </div>
+              <input type="range" id="input_objH" min="10" max="300" step="5" value="80" class="accent-purple">
+            </div>
+
+            <div class="input-row">
+              <div class="label-row">
+                <span>离地搬运高度</span>
+                <span class="font-tech val-display purple" id="val_objZ">10</span>
+              </div>
+              <input type="range" id="input_objZ" min="0" max="150" step="5" value="10" class="accent-purple">
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 障碍表单 -->
+        <div id="panel_obstacle" class="panel-section hidden">
+          <div class="panel-title">
+            <span>放置障碍物</span>
+            <button onclick="addDefaultObstacles()" class="btn" style="padding: 2px 8px; border-radius: 6px; font-size: 10px;">
+              一键预设
             </button>
           </div>
 
           <!-- 杂物列表 -->
-          <div class="space-y-2 max-h-72 overflow-y-auto" id="obstacleList">
-            <!-- 动态渲染 -->
+          <div id="obstacleList" style="max-height: 280px; overflow-y: auto;">
+            <!-- 动态生成 -->
           </div>
 
-          <button onclick="showAddObstacleModal()" class="w-full py-2 rounded-lg border border-dashed border-slate-800 hover:border-slate-700 bg-slate-900/20 text-xs text-slate-400 hover:text-white transition-all flex items-center justify-center gap-1.5">
-            <i data-lucide="plus-circle" class="w-4 h-4"></i>
-            <span>添加自定义障碍</span>
+          <button onclick="showAddObstacleModal()" class="btn primary" style="width: 100%;">
+            <i data-lucide="plus-circle" style="width: 14px; height: 14px;"></i>
+            <span>添加自定义圆柱障碍</span>
           </button>
         </div>
 
       </div>
     </aside>
 
-    <!-- 右侧内容渲染视口区 -->
-    <div class="flex-1 flex flex-col h-full bg-[#05070c] relative p-4 overflow-hidden">
+    <!-- 右侧渲染区域 -->
+    <div class="viewport-area">
       
-      <!-- 视图 1：仿真沙盘视图 (2D与3D分屏联动布局) -->
-      <div id="tab_content_simulation" class="flex-1 flex flex-col md:flex-row gap-4 h-full relative">
+      <!-- 视图 1：仿真沙盘分屏联动 -->
+      <div id="tab_content_simulation" class="split-layout">
         
-        <!-- 左侧 2D 面板 -->
-        <div class="flex-1 glass-panel rounded-2xl flex flex-col overflow-hidden relative" id="panel_2d_container">
-          <!-- 面板头部 -->
-          <div class="h-12 border-b border-slate-900 bg-slate-950/20 px-4 flex items-center justify-between shrink-0">
-            <div class="flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-cyan-500"></span>
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-300">2D 交互轨迹编辑器</span>
+        <!-- 左卡片：2D Canvas -->
+        <div class="glass-card" id="panel_2d_container">
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="dot cyan"></span>
+              <span>2D 交互编辑器</span>
             </div>
             
-            <div class="flex items-center gap-3">
-              <!-- 仿真控制 -->
-              <button id="btn_play" onclick="togglePlaySimulation()" class="w-8 h-8 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 flex items-center justify-center transition-all" title="播放/暂停模拟">
-                <i data-lucide="play" class="w-4 h-4" id="playIcon"></i>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button id="btn_play" onclick="togglePlaySimulation()" class="btn btn-icon-only" title="播放/暂停">
+                <i data-lucide="play" style="width: 14px; height: 14px;" id="playIcon"></i>
               </button>
-              <button onclick="restartSimulation()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center border border-slate-700/50 transition-all" title="重置模拟">
-                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+              <button onclick="restartSimulation()" class="btn btn-icon-only" title="重置">
+                <i data-lucide="rotate-ccw" style="width: 14px; height: 14px;"></i>
               </button>
-              <div class="h-4 w-[1px] bg-slate-850"></div>
-              <button id="btn_envelope" onclick="toggleEnvelopeDisplay()" class="px-2.5 h-8 rounded-lg border border-slate-800 bg-slate-900/50 text-[11px] text-slate-400 hover:text-white transition-all flex items-center gap-1">
-                <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+              <div style="width: 1px; height: 16px; background-color: var(--border-color);"></div>
+              <button id="btn_envelope" onclick="toggleEnvelopeDisplay()" class="btn">
+                <i data-lucide="layers" style="width: 14px; height: 14px;"></i>
                 <span>包络线: 关</span>
               </button>
             </div>
           </div>
           
-          <!-- 画布 -->
-          <div class="flex-1 relative bg-slate-950/20">
-            <canvas id="canvas_2d" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+          <div class="card-content">
+            <canvas id="canvas_2d" style="width: 100%; height: 100%; display: block;"></canvas>
             
-            <!-- 2D 操作图例 -->
-            <div class="absolute bottom-4 left-4 pointer-events-none text-[10px] text-slate-500 bg-slate-950/90 backdrop-blur border border-slate-800/80 p-2.5 rounded-lg flex flex-col gap-1 shadow-lg shadow-black/50">
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-brand-cyan/20 border border-brand-cyan rounded-sm"></span> 待搬运物体</div>
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-amber-500/20 border border-amber-500 rounded-full"></span> 障碍 (支持直接拖拽)</div>
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-[1.5px] bg-gradient-to-r from-brand-cyan to-brand-purple"></span> 规划的最佳路线</div>
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-red-500/10 border border-red-500 border-dashed rounded-sm"></span> 碰撞瓶颈卡点</div>
+            <!-- 2D 图例 -->
+            <div style="position: absolute; bottom: 12px; left: 12px; pointer-events: none; font-size: 10px; color: var(--text-muted); background: rgba(8, 12, 22, 0.95); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 8px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+              <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; background: rgba(6, 182, 212, 0.2); border: 1px solid var(--brand-cyan); border-radius: 2px;"></span> 待搬运物体</div>
+              <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; background: rgba(245, 158, 11, 0.2); border: 1px solid var(--brand-amber); border-radius: 50%;"></span> 圆柱障碍 (支持直接拖拽)</div>
+              <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 2px; background: var(--brand-purple);"></span> 最佳搬运轨迹</div>
+              <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; background: rgba(239, 68, 68, 0.1); border: 1px dashed var(--brand-red); border-radius: 2px;"></span> 卡死瓶颈点</div>
             </div>
           </div>
         </div>
 
-        <!-- 右侧 3D 面板 -->
-        <div class="flex-1 glass-panel rounded-2xl flex flex-col overflow-hidden relative" id="panel_3d_container">
-          <!-- 面板头部 -->
-          <div class="h-12 border-b border-slate-900 bg-slate-950/20 px-4 flex items-center justify-between shrink-0">
-            <div class="flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-purple-500"></span>
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-300">3D 实时仿真透视图</span>
+        <!-- 右卡片：3D Three.js -->
+        <div class="glass-card" id="panel_3d_container">
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="dot purple"></span>
+              <span>3D 实时仿真</span>
             </div>
             
-            <button onclick="reset3DCamera()" class="px-2.5 h-8 rounded-lg border border-slate-800 bg-slate-900/50 text-[11px] text-slate-400 hover:text-white transition-all flex items-center gap-1">
-              <i data-lucide="video" class="w-3.5 h-3.5"></i>
+            <button onclick="reset3DCamera()" class="btn">
+              <i data-lucide="video" style="width: 14px; height: 14px;"></i>
               <span>重置视角</span>
             </button>
           </div>
 
-          <!-- Three.js 画布容器 -->
-          <div class="flex-1 relative" id="canvas_3d_container">
-            <!-- 3D 渲染画面会在此生成 -->
+          <div class="card-content" id="canvas_3d_container">
+            <!-- 3D Canvas 挂载点 -->
           </div>
         </div>
 
       </div>
 
-      <!-- 视图 2：极限尺寸评估 (原Assess视图) -->
-      <div id="tab_content_assess" class="flex-1 hidden overflow-y-auto space-y-6">
-        <div class="max-w-5xl mx-auto space-y-6">
-          
-          <!-- 顶部评估数据卡片 -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="glass-panel p-5 rounded-2xl relative overflow-hidden">
-              <div class="text-xs text-slate-400 font-medium mb-1 flex items-center gap-1.5">
-                <i data-lucide="arrow-right-left" class="w-3.5 h-3.5 text-brand-cyan"></i>
-                当前通道可通过最大长度
-              </div>
-              <div class="flex items-baseline gap-1 mt-2">
-                <span class="text-3xl font-bold font-tech text-brand-cyan" id="assess_max_L">-</span>
-                <span class="text-xs text-slate-400">cm</span>
-              </div>
-              <p class="text-[10px] text-slate-500 mt-2">基于当前物体宽度 <span id="assess_ref_W">-</span>cm 评估</p>
+      <!-- 视图 2：极限尺寸评估 -->
+      <div id="tab_content_assess" class="assess-layout hidden">
+        
+        <!-- 统计面板 -->
+        <div class="cards-row">
+          <div class="stat-card">
+            <div class="stat-title">
+              <i data-lucide="arrow-right-left" style="width: 12px; height: 12px; color: var(--brand-cyan);"></i>
+              可通过最大长度
             </div>
-
-            <div class="glass-panel p-5 rounded-2xl relative overflow-hidden">
-              <div class="text-xs text-slate-400 font-medium mb-1 flex items-center gap-1.5">
-                <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-brand-purple"></i>
-                当前通道可通过最大宽度
-              </div>
-              <div class="flex items-baseline gap-1 mt-2">
-                <span class="text-3xl font-bold font-tech text-brand-purple" id="assess_max_W">-</span>
-                <span class="text-xs text-slate-400">cm</span>
-              </div>
-              <p class="text-[10px] text-slate-500 mt-2">基于当前物体长度 <span id="assess_ref_L">-</span>cm 评估</p>
+            <div class="stat-val-group">
+              <span class="stat-val cyan font-tech" id="assess_max_L">-</span>
+              <span class="stat-unit">cm</span>
             </div>
-
-            <div class="glass-panel p-5 rounded-2xl relative overflow-hidden">
-              <div class="text-xs text-slate-400 font-medium mb-1 flex items-center gap-1.5">
-                <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-amber-500"></i>
-                安全路线最小间隙
-              </div>
-              <div class="flex items-baseline gap-1 mt-2">
-                <span class="text-2xl font-bold font-tech text-amber-500" id="assess_clearance_status">-</span>
-              </div>
-              <p class="text-[10px] text-slate-500 mt-2.5">轨迹瓶颈处安全裕度: <span id="assess_min_gap">-</span>cm</p>
-            </div>
+            <div class="stat-desc">在当前宽度 <span id="assess_ref_W">-</span>cm 限制下</div>
           </div>
 
-          <!-- 可行设计空间包络 -->
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            <div class="glass-panel p-5 rounded-2xl lg:col-span-2 space-y-4">
-              <div class="flex justify-between items-center">
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">
-                  长宽尺寸可行设计空间 (Design Space Envelope)
-                </h3>
-                <button onclick="scanDesignSpace()" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs text-white font-semibold flex items-center gap-1.5 transition-all">
-                  <i data-lucide="scan" class="w-3.5 h-3.5"></i>
-                  <span>开始扫描设计空间</span>
-                </button>
+          <div class="stat-card">
+            <div class="stat-title">
+              <i data-lucide="arrow-up-down" style="width: 12px; height: 12px; color: var(--brand-purple);"></i>
+              可通过最大宽度
+            </div>
+            <div class="stat-val-group">
+              <span class="stat-val purple font-tech" id="assess_max_W">-</span>
+              <span class="stat-unit">cm</span>
+            </div>
+            <div class="stat-desc">在当前长度 <span id="assess_ref_L">-</span>cm 限制下</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-title">
+              <i data-lucide="shield-alert" style="width: 12px; height: 12px; color: var(--brand-amber);"></i>
+              最小通行间隙
+            </div>
+            <div class="stat-val-group">
+              <span class="stat-val amber font-tech" id="assess_clearance_status">-</span>
+            </div>
+            <div class="stat-desc">最窄交涉裕度为: <span id="assess_min_gap">-</span>cm</div>
+          </div>
+        </div>
+
+        <!-- 详细分析与曲线 -->
+        <div class="analysis-grid">
+          
+          <div class="chart-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <h3 class="report-title" style="margin: 0;">长-宽可行边界包络图</h3>
+              <button onclick="scanDesignSpace()" class="btn primary">
+                <i data-lucide="scan" style="width: 14px; height: 14px;"></i>
+                <span>扫描设计空间</span>
+              </button>
+            </div>
+            <div class="chart-container">
+              <canvas id="chart_design_space"></canvas>
+            </div>
+            <p style="font-size: 10px; color: var(--text-muted); text-align: center;">
+              💡 曲线下方绿色半透明区域为可行组合。在图表上点击任一数据点可将其应用回沙盘！
+            </p>
+          </div>
+
+          <div class="report-panel">
+            <div>
+              <h3 class="report-title">尺寸分析报告</h3>
+              <div id="assess_details_list">
+                <!-- 动态列表 -->
               </div>
-              
-              <div class="relative w-full aspect-[2/1] bg-slate-950/40 rounded-xl p-3 border border-slate-900">
-                <canvas id="chart_design_space"></canvas>
-              </div>
-              <p class="text-[11px] text-slate-500 text-center leading-relaxed">
-                💡 曲线下方为可行尺寸组合。点击图表上的任意点，可将该尺寸瞬间应用回仿真沙盘！
-              </p>
             </div>
 
-            <!-- 右侧详情报告 -->
-            <div class="glass-panel p-5 rounded-2xl space-y-4 flex flex-col justify-between">
-              <div class="space-y-4">
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">尺寸通过性报告</h3>
-                <div class="space-y-3 text-xs" id="assess_details_list">
-                  <!-- 动态生成 -->
-                </div>
-              </div>
-
-              <div class="pt-4 border-t border-slate-900">
-                <button onclick="exportReport()" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all">
-                  <i data-lucide="download" class="w-4 h-4"></i>
-                  <span>导出评估报告 (.txt)</span>
-                </button>
-              </div>
+            <div style="padding-top: 16px; border-top: 1px solid var(--border-color);">
+              <button onclick="exportReport()" class="btn" style="width: 100%; justify-content: center;">
+                <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                <span>下载评估报告 (.txt)</span>
+              </button>
             </div>
-
           </div>
 
         </div>
@@ -419,121 +1040,106 @@
     </div>
   </main>
 
-  <!-- 弹窗：添加圆柱体杂物 -->
-  <div id="obstacleModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm">
-    <div class="w-full max-w-md glass-panel p-6 rounded-2xl shadow-2xl relative border border-slate-800">
-      <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-1.5">
-        <i data-lucide="plus-circle" class="w-5 h-5 text-amber-500"></i>
-        添加通道圆柱障碍
-      </h3>
+  <!-- 弹窗：新建杂物 -->
+  <div id="obstacleModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <i data-lucide="plus-circle" style="color: var(--brand-amber); width: 16px; height: 16px;"></i>
+          添加圆柱杂物
+        </h3>
+        <button onclick="hideAddObstacleModal()" class="modal-close">
+          <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+        </button>
+      </div>
 
-      <div class="space-y-4">
+      <div class="modal-body">
         <div>
-          <label class="block text-xs text-slate-400 mb-1.5">所属通道段</label>
-          <select id="obs_segment" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-sm text-slate-200 focus:outline-none focus:border-brand-cyan">
+          <label style="display: block; font-size: 11px; color: #94a3b8; margin-bottom: 6px;">所属通道段</label>
+          <select id="obs_segment">
             <option value="1">第一段直道 (水平段)</option>
             <option value="2">第二段直道 (偏转段)</option>
           </select>
         </div>
 
         <div>
-          <label class="block text-xs text-slate-400 mb-1.5">相对定位参考墙壁</label>
-          <select id="obs_wall" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-sm text-slate-200 focus:outline-none focus:border-brand-cyan">
-            <option value="inner">转角内侧墙壁 (较短半径侧)</option>
-            <option value="outer">转角外侧墙壁 (较长半径侧)</option>
+          <label style="display: block; font-size: 11px; color: #94a3b8; margin-bottom: 6px;">定位参考墙壁</label>
+          <select id="obs_wall">
+            <option value="inner">折弯内侧墙壁 (小转弯半径)</option>
+            <option value="outer">折弯外侧墙壁 (大转弯半径)</option>
           </select>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div>
-            <label class="block text-xs text-slate-400 mb-1.5">纵向偏移 (d_long, cm)</label>
-            <input type="number" id="obs_dlong" value="250" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-sm text-slate-200 font-tech focus:outline-none focus:border-brand-cyan">
+            <label style="display: block; font-size: 11px; color: #94a3b8; margin-bottom: 6px;">纵向沿墙 (d_long, cm)</label>
+            <input type="number" id="obs_dlong" value="250">
           </div>
           <div>
-            <label class="block text-xs text-slate-400 mb-1.5">横向偏移 (d_trans, cm)</label>
-            <input type="number" id="obs_dtrans" value="30" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-sm text-slate-200 font-tech focus:outline-none focus:border-brand-cyan">
+            <label style="display: block; font-size: 11px; color: #94a3b8; margin-bottom: 6px;">偏入通道 (d_trans, cm)</label>
+            <input type="number" id="obs_dtrans" value="30">
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div>
-            <label class="block text-xs text-slate-400 mb-1.5">圆柱体半径 (R, cm)</label>
-            <input type="number" id="obs_radius" value="20" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-sm text-slate-200 font-tech focus:outline-none focus:border-brand-cyan">
+            <label style="display: block; font-size: 11px; color: #94a3b8; margin-bottom: 6px;">圆柱半径 (R, cm)</label>
+            <input type="number" id="obs_radius" value="20">
           </div>
           <div>
-            <label class="block text-xs text-slate-400 mb-1.5">圆柱体高度 (H, cm)</label>
-            <input type="number" id="obs_height" value="120" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-sm text-slate-200 font-tech focus:outline-none focus:border-brand-cyan">
+            <label style="display: block; font-size: 11px; color: #94a3b8; margin-bottom: 6px;">圆柱高度 (H, cm)</label>
+            <input type="number" id="obs_height" value="120">
           </div>
         </div>
       </div>
 
-      <div class="mt-6 flex justify-end gap-3">
-        <button onclick="hideAddObstacleModal()" class="px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 text-xs font-semibold text-slate-400 hover:text-white transition-all">取消</button>
-        <button onclick="saveObstacleFromModal()" class="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-semibold text-slate-950 transition-all">确认添加</button>
+      <div class="modal-footer">
+        <button onclick="hideAddObstacleModal()" class="btn">取消</button>
+        <button onclick="saveObstacleFromModal()" class="btn primary">添加</button>
       </div>
     </div>
   </div>
 
-  <!-- 使用说明模态框 -->
-  <div id="handoffDocModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm">
-    <div class="w-full max-w-2xl glass-panel p-6 rounded-2xl shadow-2xl relative border border-slate-800 max-h-[85vh] flex flex-col">
-      <div class="flex items-center justify-between pb-4 border-b border-slate-900 shrink-0">
-        <h3 class="text-base font-bold text-white flex items-center gap-1.5">
-          <i data-lucide="help-circle" class="w-5 h-5 text-brand-cyan"></i>
+  <!-- 使用说明 -->
+  <div id="handoffDocModal" class="modal-backdrop hidden">
+    <div class="modal-card large">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <i data-lucide="help-circle" style="color: var(--brand-cyan); width: 16px; height: 16px;"></i>
           使用说明及相对坐标系统
         </h3>
-        <button onclick="toggleHandoffDoc()" class="text-slate-400 hover:text-white">
-          <i data-lucide="x" class="w-5 h-5"></i>
+        <button onclick="toggleHandoffDoc()" class="modal-close">
+          <i data-lucide="x" style="width: 16px; height: 16px;"></i>
         </button>
       </div>
 
-      <div class="flex-1 overflow-y-auto py-4 space-y-4 text-sm text-slate-300 leading-relaxed">
-        <h4 class="font-bold text-white text-sm">📐 相对通道墙壁的坐标定位原理</h4>
-        <p>
-          在拐角通道中，直接输入绝对坐标（X, Y）不直观且容易使杂物超出边界。因此 TRANS-MES 引入了<b>墙壁相对定位坐标系</b>：
-        </p>
-        <ul class="list-disc pl-5 space-y-2 text-xs">
-          <li>
-            <b>第 1 段 (水平段)</b>：以通道最左侧的入口截面为起点。
-            <br>- 纵向偏移 (d_long)：自左向右沿着通道延伸的物理距离。
-            <br>- 横向偏移 (d_trans)：垂直于参考墙壁，向通道中轴线内部偏移的距离。
-          </li>
-          <li>
-            <b>第 2 段 (偏转段)</b>：以直道拐角内侧相交折点或外侧相交折点作为起点。
-            <br>- 纵向偏移 (d_long)：自拐角点沿偏转段轴线方向向外的物理距离。
-            <br>- 横向偏移 (d_trans)：垂直于参考墙壁，向偏转段内部偏入的距离。
-          </li>
+      <div class="modal-body" style="font-size: 12.5px; line-height: 1.6; color: #cbd5e1; max-height: 50vh;">
+        <p style="font-weight: 700; color: white;">📐 相对墙面避障坐标原理</p>
+        <p>为了让障碍输入更合乎工程直觉，我们弃用了繁杂的绝对笛卡尔坐标系，改用<b>相对墙壁坐标系统</b>：</p>
+        <ul style="padding-left: 16px; margin: 4px 0 12px 0;">
+          <li><b>直道 1 (入口)</b>：纵向偏移 (`d_long`) 代表从最左侧入口起沿墙面延伸距离；横向偏移 (`d_trans`) 代表垂直向通道中线深入的距离。</li>
+          <li><b>直道 2 (偏转)</b>：纵向偏移 (`d_long`) 代表从转角交界点起向出口延伸的距离；横向偏移 (`d_trans`) 代表垂直向内深入距离。</li>
         </ul>
-        <div class="bg-indigo-950/20 border border-indigo-500/20 p-3.5 rounded-xl text-xs space-y-1">
-          <p class="font-semibold text-brand-cyan">💡 墙壁内外侧自动对调：</p>
-          <p>
-            当偏转角为正 (向左折) 时，通道上方为“内侧墙壁” (形成折弯内角)，下方为“外侧墙壁” (形成折弯外角)。当输入负角 (向右折) 时，内外侧定义会自动对调。
-          </p>
+        <div style="background: rgba(6,182,212,0.05); border: 1px solid rgba(6,182,212,0.15); padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 11.5px;">
+          💡 <b>内外侧自适应切换</b>：通道左折弯（正角度）时，上方为内侧，下方为外侧。右折弯（负角度）时自动发生对调，确保模型严密性。
         </div>
 
-        <h4 class="font-bold text-white text-sm">🚦 避障高度与三维评估</h4>
-        <ul class="list-disc pl-5 space-y-2 text-xs">
-          <li>
-            <b>最佳路线计算</b>：系统自动在 (X, Y, 朝向角) 的三维网格空间内运行启发式 A* 算法，并加上安全距离惩罚，以使路线尽量在通道中线移动。
-          </li>
-          <li>
-            <b>三维碰撞高度</b>：如果物体的底部搬运高度被调高，它会自动跨越那些高度低于该高度的矮杂物，实现抬高避障。
-          </li>
-          <li>
-            <b>拖拽交互</b>：直接在 2D 视图中拖动障碍物，系统会自动为您计算相对偏移并更新侧边栏参数。
-          </li>
+        <p style="font-weight: 700; color: white;">🚦 路径规划与仿真机制</p>
+        <ul style="padding-left: 16px; margin-top: 4px;">
+          <li><b>最佳轨迹计算</b>：引入 A* 规划机制配合<b>流启发式</b>（Flow Heuristic），让物体沿中轴线顺滑避障，同时对靠近障碍的路径施加惩罚，优化出最宽裕的安全轨迹。</li>
+          <li><b>高度离地通过</b>：调整搬运离地高度 `Z`。若物体的底部高于杂物顶部，碰撞引擎会自动跳过该障碍物（支持抬高通过仿真）。</li>
         </ul>
       </div>
 
-      <div class="mt-4 pt-4 border-t border-slate-900 flex justify-end shrink-0">
-        <button onclick="toggleHandoffDoc()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-cyan to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-xs font-semibold text-white shadow-lg transition-all">已了解</button>
+      <div class="modal-footer">
+        <button onclick="toggleHandoffDoc()" class="btn primary">我知道了</button>
       </div>
     </div>
   </div>
 
-  <!-- JavaScript 核心逻辑 -->
+  <!-- JavaScript 逻辑 -->
   <script>
-    // --- 1. 全局配置与状态变量 ---
+    // --- 1. 全局配置与状态 ---
     const CONFIG = {
       gridSize: 10,       // 寻路网格步长 (cm)
       angleStep: 15,      // 寻路角度步长 (度)
@@ -546,24 +1152,24 @@
         w1: 150,
         l2: 500,
         w2: 150,
-        angle: 90,        // 拐角偏角
-        h: 220            // 通道高度限值
+        angle: 90,
+        h: 220
       },
       obj: {
         l: 180,
         w: 60,
         h: 80,
-        z: 10             // 搬运高度 (离地)
+        z: 10
       },
       obstacles: [],
-      path: [],           // 规划路径点 [{x, y, theta}]
+      path: [],
       simulationIndex: 0,
       isPlaying: false,
       showEnvelope: false,
       sweptVolume: [],
       bottleneck: null,
-      currentMainTab: 'simulation', // 'simulation' | 'assess'
-      currentControlTab: 'channel', // 'channel' | 'object' | 'obstacle'
+      currentMainTab: 'simulation',
+      currentControlTab: 'channel',
       viewport: {
         scale: 1,
         offsetX: 0,
@@ -575,7 +1181,6 @@
       draggedObstacleIndex: -1
     };
 
-    // 默认预设杂物
     function addDefaultObstacles() {
       state.obstacles = [
         { id: 1, segment: 1, wall: 'inner', d_long: 220, d_trans: 25, radius: 20, height: 150 },
@@ -585,7 +1190,7 @@
       triggerPathRecalculation();
     }
 
-    // --- 2. 几何计算引擎 ---
+    // --- 2. 几何计算 ---
     function getChannelGeometry() {
       const { l1, w1, l2, w2, angle } = state.channel;
       const rad = (angle * Math.PI) / 180;
@@ -670,7 +1275,7 @@
       return { x, y };
     }
 
-    // --- 3. 碰撞检测引擎 ---
+    // --- 3. 碰撞检测 ---
     function isPointInPolygon(p, poly) {
       let px = p.x, py = p.y;
       let inside = false;
@@ -708,16 +1313,6 @@
         x: x + v.x * cos - v.y * sin,
         y: y + v.x * sin + v.y * cos
       }));
-    }
-
-    function distToSegment(p, p1, p2) {
-      const dx = p2.x - p1.x;
-      const dy = p2.y - p1.y;
-      const l2 = dx * dx + dy * dy;
-      if (l2 === 0) return Math.hypot(p.x - p1.x, p.y - p1.y);
-      let t = ((p.x - p1.x) * dx + (p.y - p1.y) * dy) / l2;
-      t = Math.max(0, Math.min(1, t));
-      return Math.hypot(p.x - (p1.x + t * dx), p.y - (p1.y + t * dy));
     }
 
     function checkCollisionAndGap(x, y, theta) {
@@ -795,21 +1390,17 @@
       };
     }
 
-    // --- 4. 路径规划器 (A*) ---
-    function getHeuristic(x, y) {
-      const { l2, angle } = state.channel;
-      const rad = (angle * Math.PI) / 180;
-      
-      if (x < 0) {
-        return -x + l2;
-      } else {
-        const ux = Math.cos(rad);
-        const uy = Math.sin(rad);
-        const progress = x * ux + y * uy;
-        return Math.max(0, l2 - progress);
-      }
+    function distToSegment(p, p1, p2) {
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const l2 = dx * dx + dy * dy;
+      if (l2 === 0) return Math.hypot(p.x - p1.x, p.y - p1.y);
+      let t = ((p.x - p1.x) * dx + (p.y - p1.y) * dy) / l2;
+      t = Math.max(0, Math.min(1, t));
+      return Math.hypot(p.x - (p1.x + t * dx), p.y - (p1.y + t * dy));
     }
 
+    // --- 4. 寻路器 ---
     function planPath() {
       const { l1, l2, angle } = state.channel;
       const rad = (angle * Math.PI) / 180;
@@ -884,7 +1475,6 @@
           }
           path.push(start);
           path.reverse();
-          
           path = smoothPath(path);
           return { success: true, path: path, bottleneck: null };
         }
@@ -964,7 +1554,6 @@
           while (diff < -Math.PI) diff += 2 * Math.PI;
           while (diff > Math.PI) diff -= 2 * Math.PI;
           const theta = theta1 + diff * t;
-          
           smooth.push({ x, y, theta });
         }
       }
@@ -977,11 +1566,11 @@
       if (res.success) {
         state.path = res.path;
         state.bottleneck = null;
-        setStatus('系统就绪 (路径规划成功)', 'emerald');
+        setStatus('系统就绪 (路径生成成功)', 'emerald');
       } else {
         state.path = [];
         state.bottleneck = res.bottleneck;
-        setStatus('路径受阻 (无法完全安全通过)', 'red');
+        setStatus('路径受阻 (通道无法通过)', 'red');
       }
       state.simulationIndex = 0;
       updateEnvelopeData();
@@ -999,7 +1588,7 @@
       state.sweptVolume.push(state.path[state.path.length - 1]);
     }
 
-    // --- 5. 2D Canvas 绘制与拖拽机制 ---
+    // --- 5. 2D 画布绘制与事件 ---
     let ctx2D = null;
 
     function init2DCanvas() {
@@ -1190,11 +1779,9 @@
       ctx2D.clearRect(0, 0, canvas.width, canvas.height);
 
       const geom = getChannelGeometry();
-
-      // 1. 绘制网格背景
       drawGrid();
 
-      // 2. 绘制通道底色
+      // 通道填充背景
       ctx2D.beginPath();
       geom.polygon.forEach((p, idx) => {
         const s = worldToScreen(p.x, p.y);
@@ -1202,17 +1789,17 @@
         else ctx2D.lineTo(s.x, s.y);
       });
       ctx2D.closePath();
-      ctx2D.fillStyle = 'rgba(12, 17, 29, 0.6)';
+      ctx2D.fillStyle = 'rgba(12, 20, 35, 0.4)';
       ctx2D.fill();
 
-      // 3. 绘制包络线 Swept Volume
+      // 包络线
       if (state.showEnvelope && state.sweptVolume.length > 0) {
         state.sweptVolume.forEach(node => {
-          drawObjectOutline(node.x, node.y, node.theta, 'rgba(6, 182, 212, 0.03)', 'rgba(6, 182, 212, 0.08)');
+          drawObjectOutline(node.x, node.y, node.theta, 'rgba(6, 182, 212, 0.025)', 'rgba(6, 182, 212, 0.08)');
         });
       }
 
-      // 4. 绘制规划轨迹带
+      // 轨迹线
       if (state.path && state.path.length > 0) {
         ctx2D.beginPath();
         const pStart = worldToScreen(state.path[0].x, state.path[0].y);
@@ -1226,7 +1813,7 @@
         ctx2D.stroke();
       }
 
-      // 5. 绘制通道墙壁发光边框
+      // 墙壁线段
       ctx2D.beginPath();
       let sp = worldToScreen(geom.walls[0].p1.x, geom.walls[0].p1.y);
       ctx2D.moveTo(sp.x, sp.y);
@@ -1247,11 +1834,11 @@
       ctx2D.lineCap = 'round';
       ctx2D.lineJoin = 'round';
       ctx2D.shadowColor = '#06b6d4';
-      ctx2D.shadowBlur = 8;
+      ctx2D.shadowBlur = 6;
       ctx2D.stroke();
-      ctx2D.shadowBlur = 0; // 重置阴影
+      ctx2D.shadowBlur = 0;
 
-      // 6. 绘制圆柱障碍
+      // 圆柱障碍
       state.obstacles.forEach((obs, index) => {
         const center = getObstacleAbsoluteCoords(obs);
         const screenCenter = worldToScreen(center.x, center.y);
@@ -1273,12 +1860,12 @@
         ctx2D.strokeStyle = '#f59e0b';
         ctx2D.stroke();
 
-        ctx2D.fillStyle = '#94a3b8';
+        ctx2D.fillStyle = '#64748b';
         ctx2D.font = '10px Inter';
         ctx2D.fillText(`障碍 ${index+1}`, screenCenter.x - 15, screenCenter.y - radius - 5);
       });
 
-      // 7. 绘制瓶颈卡死标志
+      // 瓶颈卡死
       if (state.bottleneck) {
         const b = state.bottleneck;
         drawObjectOutline(b.x, b.y, b.theta, 'rgba(239, 68, 68, 0.1)', '#ef4444', true);
@@ -1286,12 +1873,12 @@
         const sCenter = worldToScreen(b.x, b.y);
         ctx2D.beginPath();
         ctx2D.arc(sCenter.x, sCenter.y, 25, 0, 2 * Math.PI);
-        ctx2D.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+        ctx2D.strokeStyle = 'rgba(239, 68, 68, 0.35)';
         ctx2D.lineWidth = 1.5;
         ctx2D.stroke();
       }
 
-      // 8. 绘制当前仿真物体
+      // 当前仿真物体
       if (state.path && state.path.length > 0) {
         const node = state.path[state.simulationIndex];
         if (node) {
@@ -1349,58 +1936,48 @@
       ctx2D.setLineDash([]);
     }
 
-    // --- 6. 3D Three.js 仿真引擎 ---
+    // --- 6. 3D 仿真 (Three.js) ---
     let scene3D = null;
     let camera3D = null;
     let renderer3D = null;
     let controls3D = null;
     let meshGroup = null;
-    
     let objMesh = null;
-    let pathLine3D = null;
 
     function init3DScene() {
       const container = document.getElementById('canvas_3d_container');
       
-      // 强力获取正确的非0大小进行初始化
       let w = container.clientWidth;
       let h = container.clientHeight;
       if (w === 0 || h === 0) {
         w = container.parentElement.clientWidth || 500;
-        h = container.parentElement.clientHeight || 450;
+        h = container.parentElement.clientHeight || 400;
       }
 
       scene3D = new THREE.Scene();
       scene3D.background = new THREE.Color(0x05070c);
 
-      // 相机
-      camera3D = new THREE.PerspectiveCamera(45, w / h, 1, 6000);
+      camera3D = new THREE.PerspectiveCamera(45, w / h, 1, 5000);
       camera3D.position.set(-200, 500, 700);
 
-      // 渲染器
       renderer3D = new THREE.WebGLRenderer({ antialias: true });
       renderer3D.setSize(w, h);
       renderer3D.shadowMap.enabled = true;
       
-      // 移除旧节点重新添加，防止重复叠加 canvas
       container.innerHTML = '';
       container.appendChild(renderer3D.domElement);
 
-      // 轨道控制器
       controls3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
       controls3D.enableDamping = true;
       controls3D.dampingFactor = 0.05;
 
-      // 补光增强，防止黑面
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
       scene3D.add(ambientLight);
 
-      const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.95);
       dirLight.position.set(300, 600, 300);
-      dirLight.castShadow = true;
       scene3D.add(dirLight);
 
-      // 增加网格地面
       const gridHelper = new THREE.GridHelper(2000, 40, 0x1e293b, 0x0f172a);
       gridHelper.position.y = -0.5;
       scene3D.add(gridHelper);
@@ -1410,10 +1987,7 @@
 
       sync3DScene();
 
-      // 监听 resize
       window.addEventListener('resize', resize3D);
-
-      // 启动循环
       animate3D();
     }
 
@@ -1441,7 +2015,6 @@
     function sync3DScene() {
       if (!scene3D || !meshGroup) return;
 
-      // 清除旧对象
       while (meshGroup.children.length > 0) {
         meshGroup.remove(meshGroup.children[0]);
       }
@@ -1449,38 +2022,24 @@
       const geom = getChannelGeometry();
       const chHeight = state.channel.h;
 
-      // 1. 地面 3D
+      // 地面
       const floorShape = new THREE.Shape();
-      geom.polygon.forEach((p, index) => {
-        if (index === 0) floorShape.moveTo(p.x, p.y);
+      geom.polygon.forEach((p, idx) => {
+        if (idx === 0) floorShape.moveTo(p.x, p.y);
         else floorShape.lineTo(p.x, p.y);
       });
       floorShape.closePath();
 
       const floorGeo = new THREE.ShapeGeometry(floorShape);
-      const floorMat = new THREE.MeshPhongMaterial({ 
-        color: 0x0f172a, 
-        transparent: true, 
-        opacity: 0.8,
-        side: THREE.DoubleSide 
-      });
+      const floorMat = new THREE.MeshPhongMaterial({ color: 0x0f172a, transparent: true, opacity: 0.8 });
       const floorMesh = new THREE.Mesh(floorGeo, floorMat);
       floorMesh.rotation.x = -Math.PI / 2;
       meshGroup.add(floorMesh);
 
-      // 2. 墙壁 3D
+      // 墙壁
       geom.walls.forEach(wall => {
-        const wallGeo = new THREE.BoxGeometry(
-          Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y),
-          chHeight,
-          4
-        );
-        const wallMat = new THREE.MeshPhongMaterial({ 
-          color: 0x0ea5e9, 
-          transparent: true, 
-          opacity: 0.3,
-          side: THREE.DoubleSide
-        });
+        const wallGeo = new THREE.BoxGeometry(Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y), chHeight, 4);
+        const wallMat = new THREE.MeshPhongMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.35 });
         const wallMesh = new THREE.Mesh(wallGeo, wallMat);
 
         const mx = (wall.p1.x + wall.p2.x) / 2;
@@ -1492,40 +2051,30 @@
         meshGroup.add(wallMesh);
       });
 
-      // 3. 障碍 3D
+      // 障碍
       state.obstacles.forEach(obs => {
         const absPos = getObstacleAbsoluteCoords(obs);
         const cylGeo = new THREE.CylinderGeometry(obs.radius, obs.radius, obs.height, 32);
-        const cylMat = new THREE.MeshPhongMaterial({ 
-          color: 0xf59e0b, 
-          transparent: true, 
-          opacity: 0.75,
-          shininess: 90
-        });
+        const cylMat = new THREE.MeshPhongMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.8 });
         const cylMesh = new THREE.Mesh(cylGeo, cylMat);
         cylMesh.position.set(absPos.x, obs.height / 2, -absPos.y);
         meshGroup.add(cylMesh);
       });
 
-      // 4. 物体 3D
+      // 物体
       const objGeo = new THREE.BoxGeometry(state.obj.l, state.obj.h, state.obj.w);
-      const objMat = new THREE.MeshPhongMaterial({ 
-        color: 0x06b6d4, 
-        transparent: true, 
-        opacity: 0.85,
-        shininess: 120
-      });
+      const objMat = new THREE.MeshPhongMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.85 });
       objMesh = new THREE.Mesh(objGeo, objMat);
       objMesh.position.set(0, state.obj.z + state.obj.h / 2, 0);
       meshGroup.add(objMesh);
 
-      // 5. 路线带 3D
+      // 轨迹轨道 3D
       if (state.path && state.path.length > 0) {
         const points = state.path.map(pt => new THREE.Vector3(pt.x, state.obj.z, -pt.y));
         const pathGeo = new THREE.BufferGeometry().setFromPoints(points);
         const pathMat = new THREE.LineBasicMaterial({ color: 0xa855f7, linewidth: 3 });
-        pathLine3D = new THREE.Line(pathGeo, pathMat);
-        meshGroup.add(pathLine3D);
+        const pathLine = new THREE.Line(pathGeo, pathMat);
+        meshGroup.add(pathLine);
       }
     }
 
@@ -1549,7 +2098,7 @@
       }
     }
 
-    // --- 7. 仿真模拟控制器 ---
+    // --- 7. 仿真模拟 ---
     let simTimer = null;
 
     function togglePlaySimulation() {
@@ -1560,7 +2109,7 @@
         lucide.createIcons();
       } else {
         if (!state.path || state.path.length === 0) {
-          setStatus('无可达路线，播放取消', 'red');
+          setStatus('无可行动轨迹，播放取消', 'red');
           return;
         }
         state.isPlaying = true;
@@ -1585,14 +2134,14 @@
     function toggleEnvelopeDisplay() {
       state.showEnvelope = !state.showEnvelope;
       document.getElementById('btn_envelope').innerHTML = `
-        <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+        <i data-lucide="layers" style="width: 14px; height: 14px;"></i>
         <span>包络线: ${state.showEnvelope ? '开' : '关'}</span>
       `;
       lucide.createIcons();
       render2D();
     }
 
-    // --- 8. 智能分析与 Chart.js 评估 ---
+    // --- 8. 智能评估与 Chart.js ---
     let designSpaceChart = null;
 
     function assessMaxLength(fixedW, fixedH) {
@@ -1656,7 +2205,7 @@
     }
 
     function scanDesignSpace() {
-      setStatus('开始全量扫描尺寸空间...', 'indigo');
+      setStatus('开始全量扫描物体尺寸空间...', 'indigo');
       
       const maxL = state.channel.l1 + state.channel.l2;
       const lengthSamples = [];
@@ -1675,7 +2224,7 @@
 
       renderDesignSpaceChart(lengthSamples, widthBounds);
       updateAssessmentReport();
-      setStatus('设计空间扫描就绪！', 'emerald');
+      setStatus('尺寸扫描已就绪！', 'emerald');
     }
 
     function renderDesignSpaceChart(labels, data) {
@@ -1693,7 +2242,7 @@
             label: '最大通过宽度 (cm)',
             data: data,
             borderColor: '#06b6d4',
-            backgroundColor: 'rgba(6, 182, 212, 0.06)',
+            backgroundColor: 'rgba(6, 182, 212, 0.08)',
             fill: true,
             tension: 0.35,
             borderWidth: 2,
@@ -1717,7 +2266,7 @@
             y: {
               grid: { color: 'rgba(255,255,255,0.03)' },
               ticks: { color: '#94a3b8' },
-              title: { display: true, text: '可安全通过最大宽度 (W, cm)', color: '#94a3b8' }
+              title: { display: true, text: '可通过最大宽度 (W, cm)', color: '#94a3b8' }
             }
           },
           onClick: (e) => {
@@ -1767,18 +2316,18 @@
         gapVal.innerText = physicalGap;
 
         if (physicalGap > 25) {
-          gapBadge.innerText = '宽松顺畅';
-          gapBadge.className = 'text-xl font-bold font-tech text-emerald-400';
+          gapBadge.innerText = '极为宽松';
+          gapBadge.className = 'stat-val emerald font-tech';
         } else if (physicalGap > 10) {
-          gapBadge.innerText = '安全偏窄';
-          gapBadge.className = 'text-xl font-bold font-tech text-cyan-400';
+          gapBadge.innerText = '安全通过';
+          gapBadge.className = 'stat-val cyan font-tech';
         } else {
-          gapBadge.innerText = '间隙极小';
-          gapBadge.className = 'text-xl font-bold font-tech text-amber-500';
+          gapBadge.innerText = '极为紧张';
+          gapBadge.className = 'stat-val amber font-tech';
         }
       } else {
-        gapBadge.innerText = '路线受阻';
-        gapBadge.className = 'text-xl font-bold font-tech text-red-500';
+        gapBadge.innerText = '无法通过';
+        gapBadge.className = 'stat-val red font-tech';
         gapVal.innerText = '0';
       }
     }
@@ -1786,34 +2335,34 @@
     function updateAssessmentReport() {
       const list = document.getElementById('assess_details_list');
       const p = planPath();
-      const statusText = p.success ? '✅ 物体可安全通过' : '❌ 无法安全通过';
+      const statusText = p.success ? '✅ 物体可安全搬运通过' : '❌ 路线受阻';
       
       let html = `
-        <div class="p-3 bg-slate-900/30 rounded-xl border border-slate-900 space-y-1">
-          <p class="text-slate-500 text-[11px]">搬运状态评估结果</p>
-          <p class="text-xs font-bold text-white">${statusText}</p>
+        <div class="report-item">
+          <span class="report-label">搬运状态评估结果</span>
+          <span class="report-val">${statusText}</span>
         </div>
 
-        <div class="p-3 bg-slate-900/30 rounded-xl border border-slate-900 space-y-1">
-          <p class="text-slate-500 text-[11px]">当前通道配置</p>
-          <p class="text-xs text-slate-200">直道宽: ${state.channel.w1}cm / 角度: ${state.channel.angle}°</p>
+        <div class="report-item">
+          <span class="report-label">当前通道配置</span>
+          <span class="report-val">直道1宽: ${state.channel.w1}cm / 角度: ${state.channel.angle}°</span>
         </div>
 
-        <div class="p-3 bg-slate-900/30 rounded-xl border border-slate-900 space-y-1">
-          <p class="text-slate-500 text-[11px]">搬运物体规格</p>
-          <p class="text-xs text-slate-200">长x宽x高: ${state.obj.l}x${state.obj.w}x${state.obj.h}cm</p>
-          <p class="text-[10px] text-slate-400">避障抬高离地高度: ${state.obj.z}cm</p>
+        <div class="report-item">
+          <span class="report-label">搬运物体规格</span>
+          <span class="report-val">L x W x H: ${state.obj.l} x ${state.obj.w} x ${state.obj.h} cm</span>
+          <span class="report-label" style="margin-top: 4px;">避障搬运高度: ${state.obj.z} cm</span>
         </div>
       `;
 
       if (state.obstacles.length > 0) {
         html += `
-          <div class="p-3 bg-slate-900/30 rounded-xl border border-slate-900 space-y-1">
-            <p class="text-slate-500 text-[11px]">通道杂物清单 (${state.obstacles.length})</p>
-            <ul class="list-disc pl-4 text-[10px] text-slate-400 mt-1">
+          <div class="report-item">
+            <span class="report-label">通道杂物清单 (${state.obstacles.length})</span>
+            <ul style="padding-left: 14px; font-size: 10px; color: var(--text-muted); margin-top: 4px;">
         `;
         state.obstacles.forEach((obs, idx) => {
-          html += `<li>障碍${idx+1}: 半径 ${obs.radius}cm, 沿墙: ${obs.d_long}cm</li>`;
+          html += `<li>杂物${idx+1}: 半径 ${obs.radius}cm, 沿墙: ${obs.d_long}cm</li>`;
         });
         html += `</ul></div>`;
       }
@@ -1844,29 +2393,26 @@
       if (state.obstacles.length > 0) {
         text += `三、圆柱杂物列表：\n`;
         state.obstacles.forEach((obs, index) => {
-          text += `- 障碍物 ${index + 1}：直道段=${obs.segment}, 参考墙面=${obs.wall}, 沿墙偏移=${obs.d_long}cm, 偏入深度=${obs.d_trans}cm, 半径=${obs.radius}cm\n`;
+          text += `- 障碍物 ${index + 1}：段=${obs.segment}, 相对定位墙面=${obs.wall}, 沿墙偏移=${obs.d_long}cm, 偏入深度=${obs.d_trans}cm, 半径=${obs.radius}cm\n`;
         });
       }
 
       const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = 'TRANS-MES_Report.txt';
+      link.download = 'TRANS-MES_Assessment_Report.txt';
       link.click();
     }
 
-    // --- 9. UI 交互控制面板 Tabs 绑定 ---
-    
-    // 切换主标签页：仿真沙盘 vs 极限尺寸评估
+    // --- 9. UI 控制面板切换 ---
     function switchMainTab(tabName) {
       state.currentMainTab = tabName;
       
-      // 容器切换
       if (tabName === 'simulation') {
         document.getElementById('tab_content_simulation').classList.remove('hidden');
         document.getElementById('tab_content_assess').classList.add('hidden');
         
-        // 重新缩放 Canvas，保证在分屏中尺寸完全正确
+        // 延迟触发重排重算
         setTimeout(() => {
           resize2DCanvas();
           if (!scene3D) {
@@ -1884,32 +2430,30 @@
         scanDesignSpace();
       }
 
-      // 按钮高亮同步
+      // 状态同步
       ['simulation', 'assess'].forEach(t => {
         const btn = document.getElementById(`tab_${t}`);
         if (t === tabName) {
-          btn.className = 'px-5 py-1.5 text-xs font-semibold rounded-lg bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan transition-all';
+          btn.classList.add('active');
         } else {
-          btn.className = 'px-5 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition-all';
+          btn.classList.remove('active');
         }
       });
     }
 
-    // 切换左侧控制栏 Tab
     function switchControlTab(tabName) {
       state.currentControlTab = tabName;
 
-      // 面板显示隐藏
       ['channel', 'object', 'obstacle'].forEach(t => {
         const panel = document.getElementById(`panel_${t}`);
         const ctab = document.getElementById(`ctab_${t}`);
         
         if (t === tabName) {
           panel.classList.remove('hidden');
-          ctab.classList.add('tab-active');
+          ctab.classList.add('active');
         } else {
           panel.classList.add('hidden');
-          ctab.classList.remove('tab-active');
+          ctab.classList.remove('active');
         }
       });
     }
@@ -1917,18 +2461,18 @@
     function setStatus(msg, colorClass) {
       const badge = document.getElementById('statusBadge');
       let colorDot = 'bg-emerald-500';
-      if (colorClass === 'red') colorDot = 'bg-red-500';
-      if (colorClass === 'amber') colorDot = 'bg-amber-500';
-      if (colorClass === 'indigo') colorDot = 'bg-indigo-500';
+      if (colorClass === 'red') colorDot = '#ef4444';
+      if (colorClass === 'amber') colorDot = '#f59e0b';
+      if (colorClass === 'indigo') colorDot = '#6366f1';
+      if (colorClass === 'emerald') colorDot = '#10b981';
 
       badge.innerHTML = `
-        <span class="w-2.5 h-2.5 rounded-full ${colorDot} animate-pulse"></span>
-        <span class="text-slate-300 font-medium">${msg}</span>
+        <span class="status-dot pulse" style="background-color: ${colorDot};"></span>
+        <span style="color: #cbd5e1; font-weight: 500;">${msg}</span>
       `;
     }
 
     function syncSlidersUI() {
-      // 通道
       document.getElementById('val_l1').innerText = state.channel.l1;
       document.getElementById('val_w1').innerText = state.channel.w1;
       document.getElementById('val_l2').innerText = state.channel.l2;
@@ -1936,7 +2480,6 @@
       document.getElementById('val_angle').innerText = state.channel.angle + '°';
       document.getElementById('val_hchannel').innerText = state.channel.h;
 
-      // 物体
       document.getElementById('val_objL').innerText = state.obj.l;
       document.getElementById('val_objW').innerText = state.obj.w;
       document.getElementById('val_objH').innerText = state.obj.h;
@@ -1949,18 +2492,18 @@
 
       state.obstacles.forEach((obs, index) => {
         const item = document.createElement('div');
-        item.className = 'flex items-center justify-between p-2.5 rounded-xl border border-slate-900 bg-slate-950/20 text-xs';
+        item.className = 'obs-item';
         item.innerHTML = `
-          <div class="space-y-0.5">
-            <p class="font-bold text-slate-350">障碍 ${index + 1} (圆柱)</p>
-            <p class="text-[9px] text-slate-500">
-              段 ${obs.segment} | ${obs.wall === 'inner' ? '内侧' : '外侧'}墙 | 沿墙: ${obs.d_long}cm
-            </p>
+          <div class="obs-info">
+            <span class="obs-name">障碍 ${index + 1} (圆柱)</span>
+            <span class="obs-meta">
+              段 ${obs.segment} | ${obs.wall === 'inner' ? '内侧' : '外侧'}墙 | 纵向: ${obs.d_long}cm
+            </span>
           </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <span class="font-tech text-[9px] px-1 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">R:${obs.radius}</span>
-            <button onclick="deleteObstacle(${index})" class="text-slate-500 hover:text-red-400 transition-colors">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
+          <div class="obs-actions">
+            <span class="obs-badge">R:${obs.radius}</span>
+            <button onclick="deleteObstacle(${index})" class="delete-btn">
+              <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
             </button>
           </div>
         `;
@@ -2037,23 +2580,34 @@
       });
     }
 
-    // --- 10. 初始化启动 ---
+    function getHeuristic(x, y) {
+      const { l2, angle } = state.channel;
+      const rad = (angle * Math.PI) / 180;
+      
+      if (x < 0) {
+        return -x + l2;
+      } else {
+        const ux = Math.cos(rad);
+        const uy = Math.sin(rad);
+        const progress = x * ux + y * uy;
+        return Math.max(0, l2 - progress);
+      }
+    }
+
+    // --- 10. 启动 ---
     window.addEventListener('load', () => {
       lucide.createIcons();
       bindInputs();
       syncSlidersUI();
-      
       addDefaultObstacles();
       
       init2DCanvas();
       
-      // 开启分屏联动：延迟初始化 3D
       setTimeout(() => {
         init3DScene();
       }, 100);
       
       triggerPathRecalculation();
-      
       zoomToFit();
       render2D();
     });
