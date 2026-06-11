@@ -14,55 +14,54 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Three.js & OrbitControls -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/controls/OrbitControls.min.js"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   
   <style>
     body {
       font-family: 'Inter', sans-serif;
-      background-color: #030712;
-      color: #f3f4f6;
+      background-color: #05070c;
+      color: #e2e8f0;
     }
     .font-tech {
       font-family: 'Orbitron', sans-serif;
     }
-    /* 玻璃拟态 */
+    /* 玻璃拟态卡片 */
     .glass-panel {
-      background: rgba(17, 24, 39, 0.75);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(13, 18, 30, 0.8);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+    /* 侧边栏Tab激活状态 */
+    .tab-active {
+      background: rgba(6, 182, 212, 0.1);
+      border-color: rgba(6, 182, 212, 0.4);
+      color: #06b6d4;
     }
     /* 自定义滚动条 */
     ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
+      width: 5px;
+      height: 5px;
     }
     ::-webkit-scrollbar-track {
-      background: rgba(15, 23, 42, 0.3);
+      background: rgba(5, 7, 12, 0.5);
     }
     ::-webkit-scrollbar-thumb {
-      background: rgba(156, 163, 175, 0.2);
-      border-radius: 3px;
+      background: rgba(148, 163, 184, 0.15);
+      border-radius: 4px;
     }
     ::-webkit-scrollbar-thumb:hover {
-      background: rgba(156, 163, 175, 0.4);
+      background: rgba(6, 182, 212, 0.3);
     }
-    /* 霓虹发光 */
-    .glow-cyan {
-      box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+    /* 霓虹发光文字与线条 */
+    .glow-text-cyan {
+      text-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
     }
-    .glow-purple {
-      box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
-    }
-    /* 模拟波纹 */
-    @keyframes ping-slow {
-      0% { transform: scale(1); opacity: 0.8; }
-      100% { transform: scale(2.5); opacity: 0; }
-    }
-    .ripple {
-      animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+    .glow-border-cyan {
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
     }
   </style>
   <script>
@@ -72,13 +71,9 @@
         extend: {
           colors: {
             brand: {
-              50: '#f0f9ff',
-              100: '#e0f2fe',
-              500: '#0ea5e9',
-              600: '#0284c7',
               cyan: '#06b6d4',
               purple: '#a855f7',
-              dark: '#030712',
+              dark: '#05070c',
             }
           }
         }
@@ -88,8 +83,8 @@
 </head>
 <body class="h-full overflow-hidden flex flex-col">
 
-  <!-- 头部 Header -->
-  <header class="h-16 shrink-0 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between z-10">
+  <!-- 顶部 Header -->
+  <header class="h-16 shrink-0 border-b border-slate-900 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between z-10">
     <div class="flex items-center gap-3">
       <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-brand-cyan to-brand-purple flex items-center justify-center shadow-lg shadow-cyan-500/20">
         <i data-lucide="route" class="w-5 h-5 text-white"></i>
@@ -100,6 +95,16 @@
       </div>
     </div>
     
+    <!-- 顶部大导航页签 -->
+    <div class="flex items-center gap-2 bg-slate-900/60 p-1 rounded-xl border border-slate-800">
+      <button onclick="switchMainTab('simulation')" id="tab_simulation" class="px-5 py-1.5 text-xs font-semibold rounded-lg bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan transition-all">
+        <i data-lucide="monitor-play" class="w-3.5 h-3.5 inline mr-1.5 -mt-0.5"></i>实时仿真沙盘
+      </button>
+      <button onclick="switchMainTab('assess')" id="tab_assess" class="px-5 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition-all">
+        <i data-lucide="trending-up" class="w-3.5 h-3.5 inline mr-1.5 -mt-0.5"></i>极限尺寸评估
+      </button>
+    </div>
+
     <div class="flex items-center gap-4">
       <div id="statusBadge" class="flex items-center gap-2 px-3 h-8 rounded-full border border-slate-800 bg-slate-900/50 text-xs">
         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -116,21 +121,32 @@
   <!-- 主体工作区 -->
   <main class="flex-1 flex overflow-hidden min-h-0 relative">
     
-    <!-- 左侧控制面板 -->
-    <aside class="w-96 shrink-0 border-r border-slate-800 bg-slate-950/40 flex flex-col h-full z-10 transition-all duration-300" id="sidebar">
-      <div class="flex-1 overflow-y-auto p-5 space-y-6">
+    <!-- 左侧参数控制面板 (采用分类Tabs) -->
+    <aside class="w-80 shrink-0 border-r border-slate-900 bg-[#090d16]/60 flex flex-col h-full z-10" id="sidebar">
+      <!-- 控制面板页签 -->
+      <div class="grid grid-cols-3 gap-1 p-3 border-b border-slate-900 shrink-0 bg-slate-950/20">
+        <button onclick="switchControlTab('channel')" id="ctab_channel" class="py-2 text-xs font-medium border border-transparent rounded-lg text-slate-400 hover:text-white transition-all text-center tab-active">
+          通道
+        </button>
+        <button onclick="switchControlTab('object')" id="ctab_object" class="py-2 text-xs font-medium border border-transparent rounded-lg text-slate-400 hover:text-white transition-all text-center">
+          物体
+        </button>
+        <button onclick="switchControlTab('obstacle')" id="ctab_obstacle" class="py-2 text-xs font-medium border border-transparent rounded-lg text-slate-400 hover:text-white transition-all text-center">
+          障碍
+        </button>
+      </div>
+
+      <!-- 参数表单容器 -->
+      <div class="flex-1 overflow-y-auto p-4">
         
-        <!-- 通道配置 -->
-        <section class="space-y-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-sm font-semibold tracking-wider uppercase text-slate-400 flex items-center gap-2">
-              <i data-lucide="sliders" class="w-4 h-4 text-brand-cyan"></i>
-              通道尺寸参数
-            </h2>
-            <span class="text-xs text-slate-500 font-tech">UNIT: cm</span>
+        <!-- 1. 通道参数面板 -->
+        <div id="panel_channel" class="space-y-4">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">通道尺寸配置</span>
+            <span class="text-[10px] text-slate-500 font-tech">cm</span>
           </div>
-          
-          <div class="space-y-3.5 bg-slate-900/30 p-3.5 rounded-xl border border-slate-800/60">
+
+          <div class="space-y-3.5 bg-slate-900/20 p-3 rounded-xl border border-slate-900">
             <div>
               <div class="flex justify-between text-xs mb-1">
                 <span class="text-slate-400">直道 1 长度 (水平)</span>
@@ -173,25 +189,22 @@
 
             <div>
               <div class="flex justify-between text-xs mb-1">
-                <span class="text-slate-400">通道净空高度</span>
+                <span class="text-slate-400">通道高度限值</span>
                 <span class="font-tech text-brand-cyan" id="val_hchannel">220</span>
               </div>
               <input type="range" id="input_hchannel" min="150" max="400" step="10" value="220" class="w-full accent-cyan-500">
             </div>
           </div>
-        </section>
+        </div>
 
-        <!-- 物体配置 -->
-        <section class="space-y-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-sm font-semibold tracking-wider uppercase text-slate-400 flex items-center gap-2">
-              <i data-lucide="box" class="w-4 h-4 text-brand-purple"></i>
-              待搬运物体尺寸
-            </h2>
-            <span class="text-xs text-slate-500 font-tech">UNIT: cm</span>
+        <!-- 2. 物体参数面板 -->
+        <div id="panel_object" class="space-y-4 hidden">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">物体外形配置</span>
+            <span class="text-[10px] text-slate-500 font-tech">cm</span>
           </div>
 
-          <div class="space-y-3.5 bg-slate-900/30 p-3.5 rounded-xl border border-slate-800/60">
+          <div class="space-y-3.5 bg-slate-900/20 p-3 rounded-xl border border-slate-900">
             <div>
               <div class="flex justify-between text-xs mb-1">
                 <span class="text-slate-400">物体长度 (L)</span>
@@ -218,203 +231,208 @@
 
             <div>
               <div class="flex justify-between text-xs mb-1">
-                <span class="text-slate-400">离地搬运高度 (Z)</span>
+                <span class="text-slate-400">搬运离地高度 (Z)</span>
                 <span class="font-tech text-brand-purple" id="val_objZ">10</span>
               </div>
               <input type="range" id="input_objZ" min="0" max="150" step="5" value="10" class="w-full accent-purple-500">
             </div>
           </div>
-        </section>
+        </div>
 
-        <!-- 杂物障碍配置 -->
-        <section class="space-y-4">
+        <!-- 3. 障碍配置面板 -->
+        <div id="panel_obstacle" class="space-y-4 hidden">
           <div class="flex items-center justify-between">
-            <h2 class="text-sm font-semibold tracking-wider uppercase text-slate-400 flex items-center gap-2">
-              <i data-lucide="cone" class="w-4 h-4 text-amber-500"></i>
-              圆柱杂物障碍物
-            </h2>
-            <button onclick="addDefaultObstacles()" class="text-xs text-amber-500 hover:text-amber-400 transition-colors flex items-center gap-0.5">
-              <i data-lucide="plus" class="w-3.5 h-3.5"></i> 预设
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">障碍物管理</span>
+            <button onclick="addDefaultObstacles()" class="text-xs text-amber-500 hover:text-amber-400 font-medium flex items-center gap-0.5">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> 载入预设
             </button>
           </div>
 
           <!-- 杂物列表 -->
-          <div class="space-y-2 max-h-48 overflow-y-auto" id="obstacleList">
-            <!-- 动态生成 -->
+          <div class="space-y-2 max-h-72 overflow-y-auto" id="obstacleList">
+            <!-- 动态渲染 -->
           </div>
 
-          <!-- 新置杂物快捷表单 -->
-          <button onclick="showAddObstacleModal()" class="w-full py-2 rounded-lg border border-dashed border-slate-800 hover:border-slate-700 bg-slate-900/20 text-xs text-slate-400 hover:text-white hover:bg-slate-900/40 transition-all flex items-center justify-center gap-1.5">
+          <button onclick="showAddObstacleModal()" class="w-full py-2 rounded-lg border border-dashed border-slate-800 hover:border-slate-700 bg-slate-900/20 text-xs text-slate-400 hover:text-white transition-all flex items-center justify-center gap-1.5">
             <i data-lucide="plus-circle" class="w-4 h-4"></i>
-            <span>添加自定义圆柱障碍</span>
+            <span>添加自定义障碍</span>
           </button>
-        </section>
+        </div>
 
       </div>
     </aside>
 
-    <!-- 中央主要画布与3D视口区 -->
-    <div class="flex-1 flex flex-col h-full bg-[#080b11] relative">
+    <!-- 右侧内容渲染视口区 -->
+    <div class="flex-1 flex flex-col h-full bg-[#05070c] relative p-4 overflow-hidden">
       
-      <!-- 视口操作栏 -->
-      <div class="h-12 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between px-6 shrink-0 z-10">
-        <div class="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800/80 rounded-lg p-0.5">
-          <button id="btn_view_2d" onclick="switchView('2d')" class="px-3.5 py-1 text-xs font-medium rounded-md bg-gradient-to-r from-brand-cyan to-blue-600 text-white shadow-md transition-all">2D 交互视图</button>
-          <button id="btn_view_3d" onclick="switchView('3d')" class="px-3.5 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition-all">3D 实时仿真</button>
-          <button id="btn_view_assess" onclick="switchView('assess')" class="px-3.5 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition-all">极限尺寸评估</button>
-        </div>
-
-        <div class="flex items-center gap-2.5">
-          <!-- 仿真控制按钮 -->
-          <button id="btn_play" onclick="togglePlaySimulation()" class="w-8 h-8 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 flex items-center justify-center transition-all" title="开始/暂停模拟">
-            <i data-lucide="play" class="w-4 h-4" id="playIcon"></i>
-          </button>
-          <button onclick="restartSimulation()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center border border-slate-700/50 transition-all" title="重置模拟">
-            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-          </button>
-          <div class="h-4 w-[1px] bg-slate-800"></div>
-          <button id="btn_envelope" onclick="toggleEnvelopeDisplay()" class="px-3 h-8 rounded-lg border border-slate-800 bg-slate-900/50 text-xs text-slate-400 hover:text-white transition-all flex items-center gap-1.5">
-            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
-            <span>包络线: 关</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- 内容视口容器 -->
-      <div class="flex-1 relative min-h-0">
+      <!-- 视图 1：仿真沙盘视图 (2D与3D分屏联动布局) -->
+      <div id="tab_content_simulation" class="flex-1 flex flex-col md:flex-row gap-4 h-full relative">
         
-        <!-- 2D Canvas 容器 -->
-        <div id="container_2d" class="absolute inset-0 block flex flex-col justify-center items-center">
-          <canvas id="canvas_2d" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
-          <!-- 2D 操作图例 -->
-          <div class="absolute bottom-4 left-4 pointer-events-none flex flex-col gap-1 text-[11px] text-slate-500 bg-slate-950/80 backdrop-blur border border-slate-800/80 p-2.5 rounded-lg">
-            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-brand-cyan/20 border border-brand-cyan rounded-sm"></span> 待搬运物体</div>
-            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-amber-500/20 border border-amber-500 rounded-full"></span> 圆柱杂物 (支持拖拽)</div>
-            <div class="flex items-center gap-1.5"><span class="w-2.5 h-[1.5px] bg-gradient-to-r from-brand-cyan to-brand-purple"></span> 最佳搬运路线</div>
-            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-red-500/10 border border-red-500 border-dashed rounded-sm"></span> 模拟卡死瓶颈位置</div>
-            <div class="text-[10px] text-slate-600 mt-1">鼠标左键拖拽画布，滚轮缩放；可拖拽圆柱调整坐标</div>
-          </div>
-        </div>
-
-        <!-- 3D Three.js 容器 -->
-        <div id="container_3d" class="absolute inset-0 hidden">
-          <div id="canvas_3d_container" class="w-full h-full"></div>
-          <!-- 3D 操作图例 -->
-          <div class="absolute bottom-4 left-4 pointer-events-none text-[11px] text-slate-500 bg-slate-950/80 backdrop-blur border border-slate-800/80 p-2.5 rounded-lg flex flex-col gap-1">
-            <div class="text-slate-300 font-medium mb-0.5">3D 快捷操作</div>
-            <div>鼠标左键: 旋转摄像机</div>
-            <div>鼠标右键: 平移画面</div>
-            <div>鼠标滚轮: 缩放视图</div>
-          </div>
-        </div>
-
-        <!-- 评估报告与图表 容器 -->
-        <div id="container_assess" class="absolute inset-0 hidden overflow-y-auto p-6 space-y-6">
-          <div class="max-w-4xl mx-auto space-y-6">
+        <!-- 左侧 2D 面板 -->
+        <div class="flex-1 glass-panel rounded-2xl flex flex-col overflow-hidden relative" id="panel_2d_container">
+          <!-- 面板头部 -->
+          <div class="h-12 border-b border-slate-900 bg-slate-950/20 px-4 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-cyan-500"></span>
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-300">2D 交互轨迹编辑器</span>
+            </div>
             
-            <!-- 头部评估概述卡片 -->
-            <div class="grid grid-cols-3 gap-4">
-              <div class="glass-panel p-5 rounded-2xl relative overflow-hidden">
-                <div class="absolute -right-6 -bottom-6 w-20 h-20 rounded-full bg-brand-cyan/5 blur-xl"></div>
-                <div class="text-xs text-slate-400 font-medium mb-1 flex items-center gap-1.5">
-                  <i data-lucide="arrow-right-left" class="w-3.5 h-3.5 text-brand-cyan"></i>
-                  当前通道可通过最大长度
-                </div>
-                <div class="flex items-baseline gap-1 mt-2">
-                  <span class="text-3xl font-bold font-tech text-brand-cyan" id="assess_max_L">-</span>
-                  <span class="text-xs text-slate-400">cm</span>
-                </div>
-                <p class="text-[10px] text-slate-500 mt-2">基于当前物体宽度 <span id="assess_ref_W">-</span>cm 评估</p>
-              </div>
-
-              <div class="glass-panel p-5 rounded-2xl relative overflow-hidden">
-                <div class="absolute -right-6 -bottom-6 w-20 h-20 rounded-full bg-brand-purple/5 blur-xl"></div>
-                <div class="text-xs text-slate-400 font-medium mb-1 flex items-center gap-1.5">
-                  <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-brand-purple"></i>
-                  当前通道可通过最大宽度
-                </div>
-                <div class="flex items-baseline gap-1 mt-2">
-                  <span class="text-3xl font-bold font-tech text-brand-purple" id="assess_max_W">-</span>
-                  <span class="text-xs text-slate-400">cm</span>
-                </div>
-                <p class="text-[10px] text-slate-500 mt-2">基于当前物体长度 <span id="assess_ref_L">-</span>cm 评估</p>
-              </div>
-
-              <div class="glass-panel p-5 rounded-2xl relative overflow-hidden">
-                <div class="absolute -right-6 -bottom-6 w-20 h-20 rounded-full bg-amber-500/5 blur-xl"></div>
-                <div class="text-xs text-slate-400 font-medium mb-1 flex items-center gap-1.5">
-                  <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-amber-500"></i>
-                  避障安全余量状态
-                </div>
-                <div class="flex items-baseline gap-1 mt-2">
-                  <span class="text-xl font-bold font-tech text-amber-500" id="assess_clearance_status">-</span>
-                </div>
-                <p class="text-[10px] text-slate-500 mt-2">当前最佳路线最小安全间隙: <span id="assess_min_gap">-</span>cm</p>
-              </div>
+            <div class="flex items-center gap-3">
+              <!-- 仿真控制 -->
+              <button id="btn_play" onclick="togglePlaySimulation()" class="w-8 h-8 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 flex items-center justify-center transition-all" title="播放/暂停模拟">
+                <i data-lucide="play" class="w-4 h-4" id="playIcon"></i>
+              </button>
+              <button onclick="restartSimulation()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center border border-slate-700/50 transition-all" title="重置模拟">
+                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+              </button>
+              <div class="h-4 w-[1px] bg-slate-850"></div>
+              <button id="btn_envelope" onclick="toggleEnvelopeDisplay()" class="px-2.5 h-8 rounded-lg border border-slate-800 bg-slate-900/50 text-[11px] text-slate-400 hover:text-white transition-all flex items-center gap-1">
+                <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+                <span>包络线: 关</span>
+              </button>
             </div>
-
-            <!-- 可行尺寸包络图 -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              <div class="glass-panel p-5 rounded-2xl md:col-span-2 space-y-4">
-                <div class="flex justify-between items-center">
-                  <h3 class="text-sm font-semibold tracking-wider uppercase text-slate-300">
-                    物体尺寸可行设计空间 (Feasible Design Space)
-                  </h3>
-                  <button onclick="scanDesignSpace()" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs text-white font-medium flex items-center gap-1.5 transition-all">
-                    <i data-lucide="scan" class="w-3.5 h-3.5"></i>
-                    <span>一键扫描尺寸空间</span>
-                  </button>
-                </div>
-                
-                <div class="relative w-full aspect-[2/1] bg-slate-950/50 rounded-xl p-3 border border-slate-900">
-                  <canvas id="chart_design_space"></canvas>
-                </div>
-                <p class="text-[11px] text-slate-500 text-center leading-relaxed">
-                  💡 曲线下方绿色区域为可通过的物体尺寸组合。点击图表上的任意点，可将该尺寸应用到 2D/3D 模拟器中！
-                </p>
-              </div>
-
-              <!-- 评估报告详情 -->
-              <div class="glass-panel p-5 rounded-2xl space-y-4 flex flex-col justify-between">
-                <div class="space-y-4">
-                  <h3 class="text-sm font-semibold tracking-wider uppercase text-slate-300">尺寸通过性报告</h3>
-                  <div class="space-y-3 text-xs" id="assess_details_list">
-                    <!-- 评估详情动态生成 -->
-                  </div>
-                </div>
-
-                <div class="pt-4 border-t border-slate-800">
-                  <button onclick="exportReport()" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all">
-                    <i data-lucide="download" class="w-4 h-4"></i>
-                    <span>导出评估 PDF/文字报告</span>
-                  </button>
-                </div>
-              </div>
-
+          </div>
+          
+          <!-- 画布 -->
+          <div class="flex-1 relative bg-slate-950/20">
+            <canvas id="canvas_2d" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+            
+            <!-- 2D 操作图例 -->
+            <div class="absolute bottom-4 left-4 pointer-events-none text-[10px] text-slate-500 bg-slate-950/90 backdrop-blur border border-slate-800/80 p-2.5 rounded-lg flex flex-col gap-1 shadow-lg shadow-black/50">
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-brand-cyan/20 border border-brand-cyan rounded-sm"></span> 待搬运物体</div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-amber-500/20 border border-amber-500 rounded-full"></span> 障碍 (支持直接拖拽)</div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-[1.5px] bg-gradient-to-r from-brand-cyan to-brand-purple"></span> 规划的最佳路线</div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-red-500/10 border border-red-500 border-dashed rounded-sm"></span> 碰撞瓶颈卡点</div>
             </div>
+          </div>
+        </div>
 
+        <!-- 右侧 3D 面板 -->
+        <div class="flex-1 glass-panel rounded-2xl flex flex-col overflow-hidden relative" id="panel_3d_container">
+          <!-- 面板头部 -->
+          <div class="h-12 border-b border-slate-900 bg-slate-950/20 px-4 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-300">3D 实时仿真透视图</span>
+            </div>
+            
+            <button onclick="reset3DCamera()" class="px-2.5 h-8 rounded-lg border border-slate-800 bg-slate-900/50 text-[11px] text-slate-400 hover:text-white transition-all flex items-center gap-1">
+              <i data-lucide="video" class="w-3.5 h-3.5"></i>
+              <span>重置视角</span>
+            </button>
+          </div>
+
+          <!-- Three.js 画布容器 -->
+          <div class="flex-1 relative" id="canvas_3d_container">
+            <!-- 3D 渲染画面会在此生成 -->
           </div>
         </div>
 
       </div>
+
+      <!-- 视图 2：极限尺寸评估 (原Assess视图) -->
+      <div id="tab_content_assess" class="flex-1 hidden overflow-y-auto space-y-6">
+        <div class="max-w-5xl mx-auto space-y-6">
+          
+          <!-- 顶部评估数据卡片 -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="glass-panel p-5 rounded-2xl relative overflow-hidden">
+              <div class="text-xs text-slate-400 font-medium mb-1 flex items-center gap-1.5">
+                <i data-lucide="arrow-right-left" class="w-3.5 h-3.5 text-brand-cyan"></i>
+                当前通道可通过最大长度
+              </div>
+              <div class="flex items-baseline gap-1 mt-2">
+                <span class="text-3xl font-bold font-tech text-brand-cyan" id="assess_max_L">-</span>
+                <span class="text-xs text-slate-400">cm</span>
+              </div>
+              <p class="text-[10px] text-slate-500 mt-2">基于当前物体宽度 <span id="assess_ref_W">-</span>cm 评估</p>
+            </div>
+
+            <div class="glass-panel p-5 rounded-2xl relative overflow-hidden">
+              <div class="text-xs text-slate-400 font-medium mb-1 flex items-center gap-1.5">
+                <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-brand-purple"></i>
+                当前通道可通过最大宽度
+              </div>
+              <div class="flex items-baseline gap-1 mt-2">
+                <span class="text-3xl font-bold font-tech text-brand-purple" id="assess_max_W">-</span>
+                <span class="text-xs text-slate-400">cm</span>
+              </div>
+              <p class="text-[10px] text-slate-500 mt-2">基于当前物体长度 <span id="assess_ref_L">-</span>cm 评估</p>
+            </div>
+
+            <div class="glass-panel p-5 rounded-2xl relative overflow-hidden">
+              <div class="text-xs text-slate-400 font-medium mb-1 flex items-center gap-1.5">
+                <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-amber-500"></i>
+                安全路线最小间隙
+              </div>
+              <div class="flex items-baseline gap-1 mt-2">
+                <span class="text-2xl font-bold font-tech text-amber-500" id="assess_clearance_status">-</span>
+              </div>
+              <p class="text-[10px] text-slate-500 mt-2.5">轨迹瓶颈处安全裕度: <span id="assess_min_gap">-</span>cm</p>
+            </div>
+          </div>
+
+          <!-- 可行设计空间包络 -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <div class="glass-panel p-5 rounded-2xl lg:col-span-2 space-y-4">
+              <div class="flex justify-between items-center">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  长宽尺寸可行设计空间 (Design Space Envelope)
+                </h3>
+                <button onclick="scanDesignSpace()" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs text-white font-semibold flex items-center gap-1.5 transition-all">
+                  <i data-lucide="scan" class="w-3.5 h-3.5"></i>
+                  <span>开始扫描设计空间</span>
+                </button>
+              </div>
+              
+              <div class="relative w-full aspect-[2/1] bg-slate-950/40 rounded-xl p-3 border border-slate-900">
+                <canvas id="chart_design_space"></canvas>
+              </div>
+              <p class="text-[11px] text-slate-500 text-center leading-relaxed">
+                💡 曲线下方为可行尺寸组合。点击图表上的任意点，可将该尺寸瞬间应用回仿真沙盘！
+              </p>
+            </div>
+
+            <!-- 右侧详情报告 -->
+            <div class="glass-panel p-5 rounded-2xl space-y-4 flex flex-col justify-between">
+              <div class="space-y-4">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">尺寸通过性报告</h3>
+                <div class="space-y-3 text-xs" id="assess_details_list">
+                  <!-- 动态生成 -->
+                </div>
+              </div>
+
+              <div class="pt-4 border-t border-slate-900">
+                <button onclick="exportReport()" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all">
+                  <i data-lucide="download" class="w-4 h-4"></i>
+                  <span>导出评估报告 (.txt)</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
     </div>
   </main>
 
   <!-- 弹窗：添加圆柱体杂物 -->
   <div id="obstacleModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm">
     <div class="w-full max-w-md glass-panel p-6 rounded-2xl shadow-2xl relative border border-slate-800">
-      <h3 class="text-base font-bold text-white mb-4 flex items-center gap-1.5">
+      <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-1.5">
         <i data-lucide="plus-circle" class="w-5 h-5 text-amber-500"></i>
-        添加通道圆柱杂物
+        添加通道圆柱障碍
       </h3>
 
       <div class="space-y-4">
         <div>
           <label class="block text-xs text-slate-400 mb-1.5">所属通道段</label>
           <select id="obs_segment" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-sm text-slate-200 focus:outline-none focus:border-brand-cyan">
-            <option value="1">第一段直道 (水平入口端)</option>
-            <option value="2">第二段直道 (偏转出口端)</option>
+            <option value="1">第一段直道 (水平段)</option>
+            <option value="2">第二段直道 (偏转段)</option>
           </select>
         </div>
 
@@ -430,12 +448,10 @@
           <div>
             <label class="block text-xs text-slate-400 mb-1.5">纵向偏移 (d_long, cm)</label>
             <input type="number" id="obs_dlong" value="250" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-sm text-slate-200 font-tech focus:outline-none focus:border-brand-cyan">
-            <span class="text-[10px] text-slate-500">沿墙壁延伸方向距离</span>
           </div>
           <div>
             <label class="block text-xs text-slate-400 mb-1.5">横向偏移 (d_trans, cm)</label>
             <input type="number" id="obs_dtrans" value="30" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-sm text-slate-200 font-tech focus:outline-none focus:border-brand-cyan">
-            <span class="text-[10px] text-slate-500">垂直墙壁向内缩距离</span>
           </div>
         </div>
 
@@ -453,18 +469,18 @@
 
       <div class="mt-6 flex justify-end gap-3">
         <button onclick="hideAddObstacleModal()" class="px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 text-xs font-semibold text-slate-400 hover:text-white transition-all">取消</button>
-        <button onclick="saveObstacleFromModal()" class="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-semibold text-slate-950 transition-all">添加并更新</button>
+        <button onclick="saveObstacleFromModal()" class="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-semibold text-slate-950 transition-all">确认添加</button>
       </div>
     </div>
   </div>
 
-  <!-- 弹窗：使用说明 / Handoff Document -->
+  <!-- 使用说明模态框 -->
   <div id="handoffDocModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm">
     <div class="w-full max-w-2xl glass-panel p-6 rounded-2xl shadow-2xl relative border border-slate-800 max-h-[85vh] flex flex-col">
-      <div class="flex items-center justify-between pb-4 border-b border-slate-800 shrink-0">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-900 shrink-0">
         <h3 class="text-base font-bold text-white flex items-center gap-1.5">
           <i data-lucide="help-circle" class="w-5 h-5 text-brand-cyan"></i>
-          TRANS-MES 工具使用说明及相对坐标系统
+          使用说明及相对坐标系统
         </h3>
         <button onclick="toggleHandoffDoc()" class="text-slate-400 hover:text-white">
           <i data-lucide="x" class="w-5 h-5"></i>
@@ -474,7 +490,7 @@
       <div class="flex-1 overflow-y-auto py-4 space-y-4 text-sm text-slate-300 leading-relaxed">
         <h4 class="font-bold text-white text-sm">📐 相对通道墙壁的坐标定位原理</h4>
         <p>
-          在拐角通道中，直接输入笛卡尔直角坐标系中的绝对坐标（X, Y）极不直观，且容易使得杂物超出通道。因此本系统引入了<b>高精度的墙壁相对定位坐标系</b>：
+          在拐角通道中，直接输入绝对坐标（X, Y）不直观且容易使杂物超出边界。因此 TRANS-MES 引入了<b>墙壁相对定位坐标系</b>：
         </p>
         <ul class="list-disc pl-5 space-y-2 text-xs">
           <li>
@@ -489,27 +505,27 @@
           </li>
         </ul>
         <div class="bg-indigo-950/20 border border-indigo-500/20 p-3.5 rounded-xl text-xs space-y-1">
-          <p class="font-semibold text-brand-cyan">💡 墙壁内外侧说明：</p>
+          <p class="font-semibold text-brand-cyan">💡 墙壁内外侧自动对调：</p>
           <p>
-            当偏转角为 90° (向左折) 时，通道上方为“内侧墙壁” (形成内折角)，下方为“外侧墙壁” (形成外折角)。当输入负角 (向右折) 时，内外侧定义会自动对调。
+            当偏转角为正 (向左折) 时，通道上方为“内侧墙壁” (形成折弯内角)，下方为“外侧墙壁” (形成折弯外角)。当输入负角 (向右折) 时，内外侧定义会自动对调。
           </p>
         </div>
 
-        <h4 class="font-bold text-white text-sm">🚦 搬运寻路算法与评估说明</h4>
+        <h4 class="font-bold text-white text-sm">🚦 避障高度与三维评估</h4>
         <ul class="list-disc pl-5 space-y-2 text-xs">
           <li>
             <b>最佳路线计算</b>：系统自动在 (X, Y, 朝向角) 的三维网格空间内运行启发式 A* 算法，并加上安全距离惩罚，以使路线尽量在通道中线移动。
           </li>
           <li>
-            <b>三维碰撞与避障高度</b>：如果物体的底部搬运高度被调高，它会自动跨越那些高度低于该高度的矮杂物。
+            <b>三维碰撞高度</b>：如果物体的底部搬运高度被调高，它会自动跨越那些高度低于该高度的矮杂物，实现抬高避障。
           </li>
           <li>
-            <b>极限尺寸评估</b>：通过二分查找算法极速求出指定限制下的最大尺寸组合。一键生成“长-宽设计空间”图表以清晰显示通过区间。
+            <b>拖拽交互</b>：直接在 2D 视图中拖动障碍物，系统会自动为您计算相对偏移并更新侧边栏参数。
           </li>
         </ul>
       </div>
 
-      <div class="mt-4 pt-4 border-t border-slate-800 flex justify-end shrink-0">
+      <div class="mt-4 pt-4 border-t border-slate-900 flex justify-end shrink-0">
         <button onclick="toggleHandoffDoc()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-cyan to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-xs font-semibold text-white shadow-lg transition-all">已了解</button>
       </div>
     </div>
@@ -525,35 +541,29 @@
     };
 
     let state = {
-      // 通道配置 (cm)
       channel: {
         l1: 500,
         w1: 150,
         l2: 500,
         w2: 150,
-        angle: 90,        // 拐角偏转角度 (度)
-        h: 220            // 通道高度 (cm)
+        angle: 90,        // 拐角偏角
+        h: 220            // 通道高度限值
       },
-      // 物体尺寸 (cm)
       obj: {
         l: 180,
         w: 60,
         h: 80,
-        z: 10             // 搬运高度 (离地 cm)
+        z: 10             // 搬运高度 (离地)
       },
-      // 杂物列表
       obstacles: [],
-      // 模拟与路线数据
       path: [],           // 规划路径点 [{x, y, theta}]
-      simulationIndex: 0, // 动画当前帧
+      simulationIndex: 0,
       isPlaying: false,
       showEnvelope: false,
-      sweptVolume: [],    // 包络线数据
-      // 瓶颈卡死状态
-      bottleneck: null,   // {x, y, theta, minGap}
-      // 当前视图
-      currentView: '2d',  // '2d' | '3d' | 'assess'
-      // 2D 交互视图视口缩放与平移
+      sweptVolume: [],
+      bottleneck: null,
+      currentMainTab: 'simulation', // 'simulation' | 'assess'
+      currentControlTab: 'channel', // 'channel' | 'object' | 'obstacle'
       viewport: {
         scale: 1,
         offsetX: 0,
@@ -562,11 +572,10 @@
         lastX: 0,
         lastY: 0
       },
-      // 拖拽杂物状态
       draggedObstacleIndex: -1
     };
 
-    // 预设杂物
+    // 默认预设杂物
     function addDefaultObstacles() {
       state.obstacles = [
         { id: 1, segment: 1, wall: 'inner', d_long: 220, d_trans: 25, radius: 20, height: 150 },
@@ -576,9 +585,7 @@
       triggerPathRecalculation();
     }
 
-    // --- 2. 几何学计算引擎 ---
-    
-    // 计算通道精确墙壁顶点多边形
+    // --- 2. 几何计算引擎 ---
     function getChannelGeometry() {
       const { l1, w1, l2, w2, angle } = state.channel;
       const rad = (angle * Math.PI) / 180;
@@ -588,15 +595,10 @@
       const nx = -Math.sin(rad);
       const ny = Math.cos(rad);
 
-      // 计算内外侧墙壁在 x=0 处的交点
       let Pac = { x: 0, y: w1 / 2 };
       let Pbd = { x: 0, y: -w1 / 2 };
 
       if (Math.abs(Math.sin(rad)) > 0.001) {
-        // 直道2内侧墙壁直线方程与直道1上墙壁交点
-        // 直线 C：(0, w2/2 * nx, w2/2 * ny) + t * (ux, uy)
-        // 令 y = w1/2, 即 w2/2 * ny + t * uy = w1/2
-        // t = (w1/2 - w2/2 * ny) / uy
         const t_ac = (w1 / 2 - (w2 / 2) * ny) / uy;
         Pac.x = (w2 / 2) * nx + t_ac * ux;
         Pac.y = w1 / 2;
@@ -606,16 +608,10 @@
         Pbd.y = -w1 / 2;
       }
 
-      // 出口截面中心点
       const Pexit_center = { x: l2 * ux, y: l2 * uy };
       const Pexit_left = { x: Pexit_center.x + (w2 / 2) * nx, y: Pexit_center.y + (w2 / 2) * ny };
       const Pexit_right = { x: Pexit_center.x - (w2 / 2) * nx, y: Pexit_center.y - (w2 / 2) * ny };
 
-      // 4条墙线
-      // 墙壁1 (上墙/左侧上段)：(-l1, w1/2) -> Pac
-      // 墙壁2 (偏转左墙/左侧下段)：Pac -> Pexit_left
-      // 墙壁3 (下墙/右侧上段)：(-l1, -w1/2) -> Pbd
-      // 墙壁4 (偏转右墙/右侧下段)：Pbd -> Pexit_right
       const walls = [
         { p1: { x: -l1, y: w1 / 2 }, p2: Pac, id: 'w1' },
         { p1: Pac, p2: Pexit_left, id: 'w2' },
@@ -623,7 +619,6 @@
         { p1: Pbd, p2: Pexit_right, id: 'w4' }
       ];
 
-      // 形成完整闭合通道多边形用于“点在通道内”的快速检测
       const polygon = [
         { x: -l1, y: -w1 / 2 },
         { x: -l1, y: w1 / 2 },
@@ -636,7 +631,6 @@
       return { Pac, Pbd, Pexit_center, Pexit_left, Pexit_right, walls, polygon };
     }
 
-    // 计算杂物的全局绝对坐标 (x, y)
     function getObstacleAbsoluteCoords(obs) {
       const geom = getChannelGeometry();
       const { l1, w1, l2, w2, angle } = state.channel;
@@ -650,32 +644,23 @@
       let x = 0, y = 0;
 
       if (obs.segment === 1) {
-        // 第一段：水平段，从 x = -l1 到 0
         const startX = -l1;
         if (obs.wall === 'inner') {
-          // 转弯内侧墙壁：对应 y = w1/2 (假定角度为正，即左折弯)
-          // 若角度小于0，则相反。
           const side = angle >= 0 ? 1 : -1;
           x = startX + obs.d_long;
           y = (side * w1) / 2 - side * obs.d_trans;
         } else {
-          // 转弯外侧墙壁
           const side = angle >= 0 ? -1 : 1;
           x = startX + obs.d_long;
           y = (side * w1) / 2 - side * obs.d_trans;
         }
       } else {
-        // 第二段：偏转段
-        // 起点是拐角相交点 Pac (内侧) 或 Pbd (外侧)
         if (obs.wall === 'inner') {
-          // 偏转段内侧起点
           const startPt = angle >= 0 ? geom.Pac : geom.Pbd;
           const side = angle >= 0 ? 1 : -1;
-          // 向通道内部偏入的方向向量是法向 -nx, -ny
           x = startPt.x + obs.d_long * ux - side * obs.d_trans * nx;
           y = startPt.y + obs.d_long * uy - side * obs.d_trans * ny;
         } else {
-          // 偏转段外侧起点
           const startPt = angle >= 0 ? geom.Pbd : geom.Pac;
           const side = angle >= 0 ? -1 : 1;
           x = startPt.x + obs.d_long * ux - side * obs.d_trans * nx;
@@ -685,9 +670,7 @@
       return { x, y };
     }
 
-    // --- 3. 高精度碰撞检测引擎 ---
-
-    // 射线法：检测点是否在多边形内部
+    // --- 3. 碰撞检测引擎 ---
     function isPointInPolygon(p, poly) {
       let px = p.x, py = p.y;
       let inside = false;
@@ -701,7 +684,6 @@
       return inside;
     }
 
-    // 检测两条线段是否相交
     function isLineSegmentsIntersect(p1, q1, p2, q2) {
       function ccw(A, B, C) {
         return (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x);
@@ -709,7 +691,6 @@
       return ccw(p1, p2, q2) !== ccw(q1, p2, q2) && ccw(p1, q1, p2) !== ccw(p1, q1, q2);
     }
 
-    // 获取物体(矩形)在状态(x,y,theta)下的4个顶点坐标
     function getObjectVertices(x, y, theta) {
       const halfL = state.obj.l / 2;
       const halfW = state.obj.w / 2;
@@ -729,7 +710,6 @@
       }));
     }
 
-    // 计算点到线段的最近距离
     function distToSegment(p, p1, p2) {
       const dx = p2.x - p1.x;
       const dy = p2.y - p1.y;
@@ -740,25 +720,20 @@
       return Math.hypot(p.x - (p1.x + t * dx), p.y - (p1.y + t * dy));
     }
 
-    // 检测刚体物体在 (x, y, theta) 时的碰撞状态及最短距离
-    // 返回 { isCollision, minGap }
     function checkCollisionAndGap(x, y, theta) {
       const geom = getChannelGeometry();
       const vertices = getObjectVertices(x, y, theta);
 
-      // 三维高度超限校验
       if (state.obj.z + state.obj.h > state.channel.h) {
         return { isCollision: true, minGap: 0, reason: 'height' };
       }
 
-      // 1. 检查物体顶点是否都在通道内
       for (let v of vertices) {
         if (!isPointInPolygon(v, geom.polygon)) {
           return { isCollision: true, minGap: 0, reason: 'wall' };
         }
       }
 
-      // 2. 检查物体边是否与通道墙壁相交，同时计算物体到墙壁的最短距离
       let minGap = Infinity;
       const edges = [
         { p1: vertices[0], p2: vertices[1] },
@@ -768,37 +743,30 @@
       ];
 
       for (let wall of geom.walls) {
-        // 相交检测
         for (let edge of edges) {
           if (isLineSegmentsIntersect(edge.p1, edge.p2, wall.p1, wall.p2)) {
             return { isCollision: true, minGap: 0, reason: 'wall_intersect' };
           }
         }
-        // 计算距离
         for (let v of vertices) {
           const d = distToSegment(v, wall.p1, wall.p2);
           if (d < minGap) minGap = d;
         }
       }
 
-      // 3. 与圆柱体杂物碰撞检测
       for (let obs of state.obstacles) {
-        // 判断垂直方向(高度)是否有重叠
-        const obsZMin = 0; // 默认地基
+        const obsZMin = 0;
         const obsZMax = obs.height;
         const objZMin = state.obj.z;
         const objZMax = state.obj.z + state.obj.h;
 
-        // 如果在高度维度完全没有重叠，则不会发生碰撞
         if (objZMax <= obsZMin || objZMin >= obsZMax) {
           continue;
         }
 
-        // 2D 矩形与圆检测
         const obsCenter = getObstacleAbsoluteCoords(obs);
         const R = obs.radius;
 
-        // 转换圆心至物体局部坐标系
         const dx = obsCenter.x - x;
         const dy = obsCenter.y - y;
         const cos = Math.cos(theta);
@@ -806,7 +774,6 @@
         const lx = dx * cos + dy * sin;
         const ly = -dx * sin + dy * cos;
 
-        // 求局部坐标中圆心到物体矩形边界的最短距离
         const halfL = state.obj.l / 2;
         const halfW = state.obj.w / 2;
         const closestX = Math.max(-halfL, Math.min(halfL, lx));
@@ -814,7 +781,6 @@
 
         const dist = Math.hypot(lx - closestX, ly - closestY);
         
-        // 杂物碰撞判断
         if (dist < R) {
           return { isCollision: true, minGap: 0, reason: 'obstacle' };
         }
@@ -829,18 +795,14 @@
       };
     }
 
-    // --- 4. A* 路径规划器 ---
-
-    // 计算沿通道中心线到出口的启发式距离
+    // --- 4. 路径规划器 (A*) ---
     function getHeuristic(x, y) {
       const { l2, angle } = state.channel;
       const rad = (angle * Math.PI) / 180;
       
       if (x < 0) {
-        // 在第一段水平段：距离 = x的绝对值 + 直道2的长度
         return -x + l2;
       } else {
-        // 在第二段偏转段：投影点到终点的距离
         const ux = Math.cos(rad);
         const uy = Math.sin(rad);
         const progress = x * ux + y * uy;
@@ -848,12 +810,10 @@
       }
     }
 
-    // A* 寻路主函数
     function planPath() {
-      const { l1, l2, w1, w2, angle } = state.channel;
+      const { l1, l2, angle } = state.channel;
       const rad = (angle * Math.PI) / 180;
 
-      // 1. 初始化起点与目标点
       const start = {
         x: -l1 + state.obj.l / 2 + 10,
         y: 0,
@@ -866,13 +826,11 @@
         theta: rad
       };
 
-      // 检查起点和终点是否本身就卡住
       const startCheck = checkCollisionAndGap(start.x, start.y, start.theta);
       if (startCheck.isCollision) {
         return { success: false, path: [], bottleneck: { ...start, minGap: startCheck.minGap } };
       }
 
-      // 寻路优先级队列 (用极简二叉堆)
       const openSet = [];
       const openSetMap = new Map();
       const closedSet = new Set();
@@ -882,7 +840,6 @@
       const fScore = new Map();
 
       function stateKey(x, y, theta) {
-        // 降低分辨率以加快寻路，空间步长10cm，角度15度(24方向)
         const gx = Math.round(x / CONFIG.gridSize);
         const gy = Math.round(y / CONFIG.gridSize);
         let gtheta = Math.round((theta * 180 / Math.PI) / CONFIG.angleStep) % 24;
@@ -897,30 +854,26 @@
       openSet.push({ x: start.x, y: start.y, theta: start.theta, f: fScore.get(startKey) });
       openSetMap.set(startKey, true);
 
-      let maxIterations = 20000;
+      let maxIterations = 18000;
       let closestNodeToTarget = { x: start.x, y: start.y, theta: start.theta, dist: getHeuristic(start.x, start.y) };
 
       while (openSet.length > 0 && maxIterations-- > 0) {
-        // 取得 fScore 最小的节点
         openSet.sort((a, b) => a.f - b.f);
         const current = openSet.shift();
         const curKey = stateKey(current.x, current.y, current.theta);
         openSetMap.delete(curKey);
         closedSet.add(curKey);
 
-        // 记录离目标最近的节点，一旦失败，可用作显示瓶颈的参考点
         const curDist = getHeuristic(current.x, current.y);
         if (curDist < closestNodeToTarget.dist) {
           closestNodeToTarget = { x: current.x, y: current.y, theta: current.theta, dist: curDist };
         }
 
-        // 终点判定 (在终点20cm以内，角度偏差在20度以内即可)
         const distToTarget = Math.hypot(current.x - target.x, current.y - target.y);
         let angleDiff = Math.abs(current.theta - target.theta);
         angleDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff);
         
         if (distToTarget < 25 && angleDiff < 0.35) {
-          // 重建路径
           let path = [];
           let curr = current;
           let k = stateKey(curr.x, curr.y, curr.theta);
@@ -932,22 +885,20 @@
           path.push(start);
           path.reverse();
           
-          // 对路径进行平滑过渡
           path = smoothPath(path);
           return { success: true, path: path, bottleneck: null };
         }
 
-        // 生成相邻动作 (前/后/左/右/圆弧)
         const dTheta = (CONFIG.angleStep * Math.PI) / 180;
         const moves = [
-          { ds: 15, dt: 0 },                  // 直线前行
-          { ds: -15, dt: 0 },                 // 直线后退
-          { ds: 0, dt: dTheta },              // 原地左旋转
-          { ds: 0, dt: -dTheta },             // 原地右旋转
-          { ds: 15, dt: dTheta },             // 前进并左转
-          { ds: 15, dt: -dTheta },            // 前进并右转
-          { ds: -15, dt: dTheta },            // 后退并左转
-          { ds: -15, dt: -dTheta }            // 后退并右转
+          { ds: 15, dt: 0 },
+          { ds: -15, dt: 0 },
+          { ds: 0, dt: dTheta },
+          { ds: 0, dt: -dTheta },
+          { ds: 15, dt: dTheta },
+          { ds: 15, dt: -dTheta },
+          { ds: -15, dt: dTheta },
+          { ds: -15, dt: -dTheta }
         ];
 
         for (let move of moves) {
@@ -958,14 +909,12 @@
           let nextY = current.y + move.ds * Math.sin(current.theta);
 
           const check = checkCollisionAndGap(nextX, nextY, nextTheta);
-          if (check.isCollision) continue; // 碰撞则跳过
+          if (check.isCollision) continue;
 
           const nextKey = stateKey(nextX, nextY, nextTheta);
           if (closedSet.has(nextKey)) continue;
 
-          // 距离移动代价
           let stepCost = Math.abs(move.ds) + Math.abs(move.dt) * 40;
-          // 安全惩罚：离墙越近，代价越高，驱使路线居中
           if (check.minGap < 35) {
             stepCost += 300 / (check.minGap + 1.0);
           }
@@ -985,7 +934,6 @@
         }
       }
 
-      // 寻路失败：计算卡死位置的瓶颈间隙
       const crashCheck = checkCollisionAndGap(closestNodeToTarget.x, closestNodeToTarget.y, closestNodeToTarget.theta);
       return {
         success: false,
@@ -999,21 +947,17 @@
       };
     }
 
-    // 路径平滑插值
     function smoothPath(rawPath) {
       if (rawPath.length < 3) return rawPath;
       const smooth = [];
-      // 对坐标进行贝塞尔或简单的插值
       for (let i = 0; i < rawPath.length - 1; i++) {
         const p1 = rawPath[i];
         const p2 = rawPath[i+1];
-        // 中间插入 3 个过渡点，使得动画平滑
         const steps = 4;
         for (let s = 0; s < steps; s++) {
           const t = s / steps;
           const x = p1.x + (p2.x - p1.x) * t;
           const y = p1.y + (p2.y - p1.y) * t;
-          // 角度平滑插值 (处理 360° 跨越问题)
           let theta1 = p1.theta;
           let theta2 = p2.theta;
           let diff = theta2 - theta1;
@@ -1028,17 +972,16 @@
       return smooth;
     }
 
-    // 重新计算路线，并更新 UI 与状态
     function triggerPathRecalculation() {
       const res = planPath();
       if (res.success) {
         state.path = res.path;
         state.bottleneck = null;
-        setStatus('系统就绪 (已成功规划路线)', 'emerald');
+        setStatus('系统就绪 (路径规划成功)', 'emerald');
       } else {
         state.path = [];
         state.bottleneck = res.bottleneck;
-        setStatus('路线受阻 (无法安全通过通道)', 'red');
+        setStatus('路径受阻 (无法完全安全通过)', 'red');
       }
       state.simulationIndex = 0;
       updateEnvelopeData();
@@ -1046,34 +989,28 @@
       sync3DScene();
     }
 
-    // 计算包络线
     function updateEnvelopeData() {
       state.sweptVolume = [];
       if (!state.path || state.path.length === 0) return;
-      // 采样部分路径点生成包络体积
       const step = Math.max(1, Math.floor(state.path.length / 30));
       for (let i = 0; i < state.path.length; i += step) {
         state.sweptVolume.push(state.path[i]);
       }
-      // 确保终点加入
       state.sweptVolume.push(state.path[state.path.length - 1]);
     }
 
-    // --- 5. 2D Canvas 交互视图 ---
+    // --- 5. 2D Canvas 绘制与拖拽机制 ---
     let ctx2D = null;
 
     function init2DCanvas() {
       const canvas = document.getElementById('canvas_2d');
       ctx2D = canvas.getContext('2d');
       
-      // 适应屏幕分辨率
       resize2DCanvas();
       window.addEventListener('resize', resize2DCanvas);
 
-      // 自适应居中缩放
       zoomToFit();
 
-      // 画布拖拽及滚轮缩放事件
       canvas.addEventListener('mousedown', onMouseDown);
       canvas.addEventListener('mousemove', onMouseMove);
       canvas.addEventListener('mouseup', onMouseUp);
@@ -1089,13 +1026,11 @@
       }
     }
 
-    // 自适应居中缩放通道
     function zoomToFit() {
       const canvas = document.getElementById('canvas_2d');
       if (!canvas) return;
       const geom = getChannelGeometry();
       
-      // 计算多边形 Bounding Box
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
       geom.polygon.forEach(p => {
         if (p.x < minX) minX = p.x;
@@ -1107,40 +1042,33 @@
       const w = maxX - minX;
       const h = maxY - minY;
       
-      // 留出 20% margin
       const scaleX = (canvas.width * 0.8) / w;
       const scaleY = (canvas.height * 0.8) / h;
       state.viewport.scale = Math.min(scaleX, scaleY);
       
-      // 居中偏移
       state.viewport.offsetX = canvas.width / 2 - (minX + w / 2) * state.viewport.scale;
       state.viewport.offsetY = canvas.height / 2 - (minY + h / 2) * state.viewport.scale;
     }
 
-    // 屏幕坐标转世界坐标
     function screenToWorld(sx, sy) {
       const x = (sx - state.viewport.offsetX) / state.viewport.scale;
-      const y = -(sy - state.viewport.offsetY) / state.viewport.scale; // Y轴翻转
+      const y = -(sy - state.viewport.offsetY) / state.viewport.scale;
       return { x, y };
     }
 
-    // 世界坐标转屏幕坐标
     function worldToScreen(wx, wy) {
       const x = wx * state.viewport.scale + state.viewport.offsetX;
       const y = -wy * state.viewport.scale + state.viewport.offsetY;
       return { x, y };
     }
 
-    // 2D 交互事件处理器
     function onMouseDown(e) {
       const canvas = document.getElementById('canvas_2d');
       const rect = canvas.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const clickY = e.clientY - rect.top;
-      
       const worldPos = screenToWorld(clickX, clickY);
 
-      // 1. 检查是否点中杂物准备拖动
       state.draggedObstacleIndex = -1;
       for (let i = 0; i < state.obstacles.length; i++) {
         const obs = state.obstacles[i];
@@ -1148,13 +1076,12 @@
         const dist = Math.hypot(worldPos.x - obsPos.x, worldPos.y - obsPos.y);
         if (dist <= obs.radius) {
           state.draggedObstacleIndex = i;
-          setStatus(`正在拖拽圆柱杂物 ${i+1}`, 'amber');
+          setStatus(`正在拖拽障碍 ${i+1}`, 'amber');
           canvas.style.cursor = 'grabbing';
           return;
         }
       }
 
-      // 2. 否则进行画布拖拽
       state.viewport.isDragging = true;
       state.viewport.lastX = e.clientX;
       state.viewport.lastY = e.clientY;
@@ -1162,7 +1089,6 @@
 
     function onMouseMove(e) {
       if (state.draggedObstacleIndex !== -1) {
-        // 拖拽杂物，逆向计算相对坐标并更新
         const canvas = document.getElementById('canvas_2d');
         const rect = canvas.getBoundingClientRect();
         const curX = e.clientX - rect.left;
@@ -1203,11 +1129,10 @@
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
 
-      const zoomFactor = 1.1;
+      const zoomFactor = 1.15;
       const oldScale = state.viewport.scale;
       const newScale = e.deltaY < 0 ? oldScale * zoomFactor : oldScale / zoomFactor;
 
-      // 缩放中心锚定在鼠标位置
       const worldPos = screenToWorld(mouseX, mouseY);
       state.viewport.scale = Math.min(10, Math.max(0.1, newScale));
       
@@ -1217,7 +1142,6 @@
       render2D();
     }
 
-    // 根据拖拽绝对坐标，逆向反算杂物相对参考墙壁的偏移
     function updateObstacleRelativeCoords(idx, worldPos) {
       const obs = state.obstacles[idx];
       const geom = getChannelGeometry();
@@ -1230,20 +1154,15 @@
       const ny = Math.cos(rad);
 
       if (obs.segment === 1) {
-        // 直道1
         const startX = -l1;
         const side = angle >= 0 ? 1 : -1;
-        
-        // 纵向距离 d_long 就是 x 相对起点的距离
         obs.d_long = Math.round(Math.max(0, Math.min(l1, worldPos.x - startX)));
-        // 横向偏入距离
         if (obs.wall === 'inner') {
           obs.d_trans = Math.round(Math.max(0, Math.min(w1, ((side * w1) / 2 - worldPos.y) / side)));
         } else {
           obs.d_trans = Math.round(Math.max(0, Math.min(w1, (worldPos.y - (side * w1) / 2) / side)));
         }
       } else {
-        // 直道2
         const side = angle >= 0 ? 1 : -1;
         const startPt = obs.wall === 'inner' 
           ? (angle >= 0 ? geom.Pac : geom.Pbd)
@@ -1252,11 +1171,9 @@
         const dx = worldPos.x - startPt.x;
         const dy = worldPos.y - startPt.y;
 
-        // 沿直道2轴向的投影长度
         const projLong = dx * ux + dy * uy;
         obs.d_long = Math.round(Math.max(0, Math.min(l2, projLong)));
 
-        // 沿法向投影长度 (偏入距离)
         const projTrans = dx * nx + dy * ny;
         if (obs.wall === 'inner') {
           obs.d_trans = Math.round(Math.max(0, Math.min(w2, -side * projTrans)));
@@ -1267,7 +1184,6 @@
       updateObstaclesUI();
     }
 
-    // 2D 绘图核心函数
     function render2D() {
       if (!ctx2D) return;
       const canvas = document.getElementById('canvas_2d');
@@ -1278,34 +1194,7 @@
       // 1. 绘制网格背景
       drawGrid();
 
-      // 2. 绘制通道墙壁
-      ctx2D.beginPath();
-      // 上/左墙壁线
-      let sp = worldToScreen(geom.walls[0].p1.x, geom.walls[0].p1.y);
-      ctx2D.moveTo(sp.x, sp.y);
-      let ep1 = worldToScreen(geom.walls[0].p2.x, geom.walls[0].p2.y);
-      ctx2D.lineTo(ep1.x, ep1.y);
-      let ep2 = worldToScreen(geom.walls[1].p2.x, geom.walls[1].p2.y);
-      ctx2D.lineTo(ep2.x, ep2.y);
-      
-      // 下/右墙壁线
-      let sp2 = worldToScreen(geom.walls[2].p1.x, geom.walls[2].p1.y);
-      ctx2D.moveTo(sp2.x, sp2.y);
-      let ep3 = worldToScreen(geom.walls[2].p2.x, geom.walls[2].p2.y);
-      ctx2D.lineTo(ep3.x, ep3.y);
-      let ep4 = worldToScreen(geom.walls[3].p2.x, geom.walls[3].p2.y);
-      ctx2D.lineTo(ep4.x, ep4.y);
-      
-      ctx2D.strokeStyle = '#38bdf8'; // 亮蓝色发光边框
-      ctx2D.lineWidth = 4;
-      ctx2D.lineCap = 'round';
-      ctx2D.lineJoin = 'round';
-      ctx2D.shadowColor = '#0284c7';
-      ctx2D.shadowBlur = 8;
-      ctx2D.stroke();
-      ctx2D.shadowBlur = 0; // 重置阴影
-
-      // 绘制封闭的通道内填充背景
+      // 2. 绘制通道底色
       ctx2D.beginPath();
       geom.polygon.forEach((p, idx) => {
         const s = worldToScreen(p.x, p.y);
@@ -1313,17 +1202,17 @@
         else ctx2D.lineTo(s.x, s.y);
       });
       ctx2D.closePath();
-      ctx2D.fillStyle = 'rgba(15, 23, 42, 0.4)'; // 半透明暗背景
+      ctx2D.fillStyle = 'rgba(12, 17, 29, 0.6)';
       ctx2D.fill();
 
       // 3. 绘制包络线 Swept Volume
       if (state.showEnvelope && state.sweptVolume.length > 0) {
         state.sweptVolume.forEach(node => {
-          drawObjectOutline(node.x, node.y, node.theta, 'rgba(6, 182, 212, 0.04)', 'rgba(6, 182, 212, 0.1)');
+          drawObjectOutline(node.x, node.y, node.theta, 'rgba(6, 182, 212, 0.03)', 'rgba(6, 182, 212, 0.08)');
         });
       }
 
-      // 4. 绘制规划路径轨迹线
+      // 4. 绘制规划轨迹带
       if (state.path && state.path.length > 0) {
         ctx2D.beginPath();
         const pStart = worldToScreen(state.path[0].x, state.path[0].y);
@@ -1332,27 +1221,50 @@
           const pt = worldToScreen(state.path[i].x, state.path[i].y);
           ctx2D.lineTo(pt.x, pt.y);
         }
-        ctx2D.strokeStyle = '#a855f7'; // 紫色路线带
+        ctx2D.strokeStyle = '#a855f7';
         ctx2D.lineWidth = 3;
         ctx2D.stroke();
       }
 
-      // 5. 绘制圆柱杂物
+      // 5. 绘制通道墙壁发光边框
+      ctx2D.beginPath();
+      let sp = worldToScreen(geom.walls[0].p1.x, geom.walls[0].p1.y);
+      ctx2D.moveTo(sp.x, sp.y);
+      let ep1 = worldToScreen(geom.walls[0].p2.x, geom.walls[0].p2.y);
+      ctx2D.lineTo(ep1.x, ep1.y);
+      let ep2 = worldToScreen(geom.walls[1].p2.x, geom.walls[1].p2.y);
+      ctx2D.lineTo(ep2.x, ep2.y);
+      
+      let sp2 = worldToScreen(geom.walls[2].p1.x, geom.walls[2].p1.y);
+      ctx2D.moveTo(sp2.x, sp2.y);
+      let ep3 = worldToScreen(geom.walls[2].p2.x, geom.walls[2].p2.y);
+      ctx2D.lineTo(ep3.x, ep3.y);
+      let ep4 = worldToScreen(geom.walls[3].p2.x, geom.walls[3].p2.y);
+      ctx2D.lineTo(ep4.x, ep4.y);
+      
+      ctx2D.strokeStyle = '#06b6d4';
+      ctx2D.lineWidth = 4;
+      ctx2D.lineCap = 'round';
+      ctx2D.lineJoin = 'round';
+      ctx2D.shadowColor = '#06b6d4';
+      ctx2D.shadowBlur = 8;
+      ctx2D.stroke();
+      ctx2D.shadowBlur = 0; // 重置阴影
+
+      // 6. 绘制圆柱障碍
       state.obstacles.forEach((obs, index) => {
         const center = getObstacleAbsoluteCoords(obs);
         const screenCenter = worldToScreen(center.x, center.y);
         const radius = obs.radius * state.viewport.scale;
 
-        // 绘制阴影和发光
         ctx2D.beginPath();
         ctx2D.arc(screenCenter.x, screenCenter.y, radius, 0, 2 * Math.PI);
-        ctx2D.fillStyle = 'rgba(245, 158, 11, 0.25)'; // 橙黄色半透明
+        ctx2D.fillStyle = 'rgba(245, 158, 11, 0.2)';
         ctx2D.strokeStyle = '#f59e0b';
         ctx2D.lineWidth = 2;
         ctx2D.fill();
         ctx2D.stroke();
 
-        // 杂物中心十字与标注
         ctx2D.beginPath();
         ctx2D.moveTo(screenCenter.x - 4, screenCenter.y);
         ctx2D.lineTo(screenCenter.x + 4, screenCenter.y);
@@ -1366,36 +1278,34 @@
         ctx2D.fillText(`障碍 ${index+1}`, screenCenter.x - 15, screenCenter.y - radius - 5);
       });
 
-      // 6. 绘制瓶颈处发生碰撞的标志 (如果存在)
+      // 7. 绘制瓶颈卡死标志
       if (state.bottleneck) {
         const b = state.bottleneck;
-        // 绘制卡死状态的红色物体框
-        drawObjectOutline(b.x, b.y, b.theta, 'rgba(239, 68, 68, 0.15)', '#ef4444', true);
+        drawObjectOutline(b.x, b.y, b.theta, 'rgba(239, 68, 68, 0.1)', '#ef4444', true);
         
-        // 绘制发光的呼吸波纹
         const sCenter = worldToScreen(b.x, b.y);
         ctx2D.beginPath();
-        ctx2D.arc(sCenter.x, sCenter.y, 30, 0, 2 * Math.PI);
-        ctx2D.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+        ctx2D.arc(sCenter.x, sCenter.y, 25, 0, 2 * Math.PI);
+        ctx2D.strokeStyle = 'rgba(239, 68, 68, 0.4)';
         ctx2D.lineWidth = 1.5;
         ctx2D.stroke();
       }
 
-      // 7. 绘制正在进行模拟的搬运物体
+      // 8. 绘制当前仿真物体
       if (state.path && state.path.length > 0) {
         const node = state.path[state.simulationIndex];
-        drawObjectOutline(node.x, node.y, node.theta, 'rgba(6, 182, 212, 0.3)', '#06b6d4');
+        if (node) {
+          drawObjectOutline(node.x, node.y, node.theta, 'rgba(6, 182, 212, 0.35)', '#06b6d4');
+        }
       }
     }
 
-    // 绘制网格背景
     function drawGrid() {
       const canvas = document.getElementById('canvas_2d');
-      const step = 50 * state.viewport.scale; // 每50cm网格线
-      ctx2D.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+      const step = 50 * state.viewport.scale;
+      ctx2D.strokeStyle = 'rgba(255, 255, 255, 0.015)';
       ctx2D.lineWidth = 1;
 
-      // 根据偏移计算网格线
       const startX = state.viewport.offsetX % step;
       const startY = state.viewport.offsetY % step;
 
@@ -1414,7 +1324,6 @@
       }
     }
 
-    // 绘制物体轮廓辅助函数
     function drawObjectOutline(x, y, theta, fillColor, strokeColor, isDashed = false) {
       const vertices = getObjectVertices(x, y, theta);
       ctx2D.beginPath();
@@ -1437,36 +1346,44 @@
       ctx2D.strokeStyle = strokeColor;
       ctx2D.lineWidth = 2;
       ctx2D.stroke();
-      ctx2D.setLineDash([]); // 还原
+      ctx2D.setLineDash([]);
     }
 
-    // --- 6. 3D Three.js 实时仿真引擎 ---
+    // --- 6. 3D Three.js 仿真引擎 ---
     let scene3D = null;
     let camera3D = null;
     let renderer3D = null;
     let controls3D = null;
-    
-    // 3D 渲染网格存储，方便更新
     let meshGroup = null;
+    
     let objMesh = null;
     let pathLine3D = null;
 
     function init3DScene() {
       const container = document.getElementById('canvas_3d_container');
-      const w = container.clientWidth;
-      const h = container.clientHeight;
+      
+      // 强力获取正确的非0大小进行初始化
+      let w = container.clientWidth;
+      let h = container.clientHeight;
+      if (w === 0 || h === 0) {
+        w = container.parentElement.clientWidth || 500;
+        h = container.parentElement.clientHeight || 450;
+      }
 
       scene3D = new THREE.Scene();
-      scene3D.background = new THREE.Color(0x080b11);
+      scene3D.background = new THREE.Color(0x05070c);
 
       // 相机
-      camera3D = new THREE.PerspectiveCamera(45, w / h, 1, 5000);
-      camera3D.position.set(-200, 400, 600);
+      camera3D = new THREE.PerspectiveCamera(45, w / h, 1, 6000);
+      camera3D.position.set(-200, 500, 700);
 
       // 渲染器
       renderer3D = new THREE.WebGLRenderer({ antialias: true });
       renderer3D.setSize(w, h);
       renderer3D.shadowMap.enabled = true;
+      
+      // 移除旧节点重新添加，防止重复叠加 canvas
+      container.innerHTML = '';
       container.appendChild(renderer3D.domElement);
 
       // 轨道控制器
@@ -1474,46 +1391,57 @@
       controls3D.enableDamping = true;
       controls3D.dampingFactor = 0.05;
 
-      // 灯光
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+      // 补光增强，防止黑面
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
       scene3D.add(ambientLight);
 
-      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-      dirLight.position.set(200, 500, 200);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+      dirLight.position.set(300, 600, 300);
       dirLight.castShadow = true;
       scene3D.add(dirLight);
 
-      // 辅助网格底座
+      // 增加网格地面
       const gridHelper = new THREE.GridHelper(2000, 40, 0x1e293b, 0x0f172a);
       gridHelper.position.y = -0.5;
       scene3D.add(gridHelper);
 
-      // 物体及场景网格容器
       meshGroup = new THREE.Group();
       scene3D.add(meshGroup);
 
-      // 初始化3D渲染对象
       sync3DScene();
 
-      // 窗口适应
-      window.addEventListener('resize', () => {
-        if (renderer3D && camera3D) {
-          const w = container.clientWidth;
-          const h = container.clientHeight;
+      // 监听 resize
+      window.addEventListener('resize', resize3D);
+
+      // 启动循环
+      animate3D();
+    }
+
+    function resize3D() {
+      const container = document.getElementById('canvas_3d_container');
+      if (container && renderer3D && camera3D) {
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        if (w > 0 && h > 0) {
           camera3D.aspect = w / h;
           camera3D.updateProjectionMatrix();
           renderer3D.setSize(w, h);
         }
-      });
+      }
+    }
 
-      // 启动 3D 渲染循环
-      animate3D();
+    function reset3DCamera() {
+      if (camera3D && controls3D) {
+        camera3D.position.set(-200, 500, 700);
+        controls3D.target.set(0, 0, 0);
+        controls3D.update();
+      }
     }
 
     function sync3DScene() {
-      if (!scene3D) return;
+      if (!scene3D || !meshGroup) return;
 
-      // 1. 清空旧网格
+      // 清除旧对象
       while (meshGroup.children.length > 0) {
         meshGroup.remove(meshGroup.children[0]);
       }
@@ -1521,7 +1449,7 @@
       const geom = getChannelGeometry();
       const chHeight = state.channel.h;
 
-      // 2. 创建 3D 通道地面
+      // 1. 地面 3D
       const floorShape = new THREE.Shape();
       geom.polygon.forEach((p, index) => {
         if (index === 0) floorShape.moveTo(p.x, p.y);
@@ -1531,17 +1459,16 @@
 
       const floorGeo = new THREE.ShapeGeometry(floorShape);
       const floorMat = new THREE.MeshPhongMaterial({ 
-        color: 0x1e293b, 
+        color: 0x0f172a, 
         transparent: true, 
         opacity: 0.8,
         side: THREE.DoubleSide 
       });
       const floorMesh = new THREE.Mesh(floorGeo, floorMat);
-      floorMesh.rotation.x = -Math.PI / 2; // 水平放置
-      floorMesh.position.y = 0;
+      floorMesh.rotation.x = -Math.PI / 2;
       meshGroup.add(floorMesh);
 
-      // 3. 创建 3D 通道墙壁 (拉伸挤出 Extrude)
+      // 2. 墙壁 3D
       geom.walls.forEach(wall => {
         const wallGeo = new THREE.BoxGeometry(
           Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y),
@@ -1549,51 +1476,50 @@
           4
         );
         const wallMat = new THREE.MeshPhongMaterial({ 
-          color: 0x0284c7, 
+          color: 0x0ea5e9, 
           transparent: true, 
-          opacity: 0.35,
+          opacity: 0.3,
           side: THREE.DoubleSide
         });
         const wallMesh = new THREE.Mesh(wallGeo, wallMat);
 
-        // 定位与旋转
         const mx = (wall.p1.x + wall.p2.x) / 2;
         const my = (wall.p1.y + wall.p2.y) / 2;
         const angle = Math.atan2(wall.p2.y - wall.p1.y, wall.p2.x - wall.p1.x);
 
-        wallMesh.position.set(mx, chHeight / 2, -my); // 轴变换
+        wallMesh.position.set(mx, chHeight / 2, -my);
         wallMesh.rotation.y = angle;
         meshGroup.add(wallMesh);
       });
 
-      // 4. 创建 3D 圆柱杂物
+      // 3. 障碍 3D
       state.obstacles.forEach(obs => {
         const absPos = getObstacleAbsoluteCoords(obs);
         const cylGeo = new THREE.CylinderGeometry(obs.radius, obs.radius, obs.height, 32);
         const cylMat = new THREE.MeshPhongMaterial({ 
           color: 0xf59e0b, 
           transparent: true, 
-          opacity: 0.7,
-          shininess: 80
+          opacity: 0.75,
+          shininess: 90
         });
         const cylMesh = new THREE.Mesh(cylGeo, cylMat);
         cylMesh.position.set(absPos.x, obs.height / 2, -absPos.y);
         meshGroup.add(cylMesh);
       });
 
-      // 5. 创建搬运物体
+      // 4. 物体 3D
       const objGeo = new THREE.BoxGeometry(state.obj.l, state.obj.h, state.obj.w);
       const objMat = new THREE.MeshPhongMaterial({ 
         color: 0x06b6d4, 
         transparent: true, 
         opacity: 0.85,
-        shininess: 100
+        shininess: 120
       });
       objMesh = new THREE.Mesh(objGeo, objMat);
       objMesh.position.set(0, state.obj.z + state.obj.h / 2, 0);
       meshGroup.add(objMesh);
 
-      // 6. 绘制 3D 渐变路线光带
+      // 5. 路线带 3D
       if (state.path && state.path.length > 0) {
         const points = state.path.map(pt => new THREE.Vector3(pt.x, state.obj.z, -pt.y));
         const pathGeo = new THREE.BufferGeometry().setFromPoints(points);
@@ -1608,7 +1534,6 @@
 
       if (controls3D) controls3D.update();
 
-      // 动画物体位姿更新
       if (objMesh && state.path && state.path.length > 0) {
         const node = state.path[state.simulationIndex];
         if (node) {
@@ -1624,20 +1549,18 @@
       }
     }
 
-    // --- 7. 仿真模拟时间线控制 ---
+    // --- 7. 仿真模拟控制器 ---
     let simTimer = null;
 
     function togglePlaySimulation() {
       if (state.isPlaying) {
-        // 暂停
         state.isPlaying = false;
         clearInterval(simTimer);
         document.getElementById('playIcon').setAttribute('data-lucide', 'play');
         lucide.createIcons();
       } else {
-        // 播放
         if (!state.path || state.path.length === 0) {
-          setStatus('无可行动路线，播放已取消', 'red');
+          setStatus('无可达路线，播放取消', 'red');
           return;
         }
         state.isPlaying = true;
@@ -1647,10 +1570,10 @@
         simTimer = setInterval(() => {
           state.simulationIndex++;
           if (state.simulationIndex >= state.path.length) {
-            state.simulationIndex = 0; // 循环播放
+            state.simulationIndex = 0;
           }
           render2D();
-        }, 50); // 20fps
+        }, 50);
       }
     }
 
@@ -1669,16 +1592,14 @@
       render2D();
     }
 
-    // --- 8. 智能评估与 Chart.js 绑定 ---
+    // --- 8. 智能分析与 Chart.js 评估 ---
     let designSpaceChart = null;
 
-    // 二分查找求可通过最大长度 (cm)
     function assessMaxLength(fixedW, fixedH) {
       let low = 10;
       let high = state.channel.l1 + state.channel.l2;
       let bestL = 10;
 
-      // 备份当前物体状态
       const backupL = state.obj.l;
       const backupW = state.obj.w;
       const backupH = state.obj.h;
@@ -1689,25 +1610,21 @@
       for (let i = 0; i < 10; i++) {
         let mid = (low + high) / 2;
         state.obj.l = mid;
-        
         const checkPath = planPath();
         if (checkPath.success) {
           bestL = mid;
-          low = mid; // 尝试更长的
+          low = mid;
         } else {
-          high = mid; // 缩减长度
+          high = mid;
         }
       }
 
-      // 还原
       state.obj.l = backupL;
       state.obj.w = backupW;
       state.obj.h = backupH;
-
       return Math.round(bestL);
     }
 
-    // 二分查找求可通过最大宽度 (cm)
     function assessMaxWidth(fixedL, fixedH) {
       let low = 5;
       let high = Math.min(state.channel.w1, state.channel.w2);
@@ -1723,7 +1640,6 @@
       for (let i = 0; i < 10; i++) {
         let mid = (low + high) / 2;
         state.obj.w = mid;
-        
         const checkPath = planPath();
         if (checkPath.success) {
           bestW = mid;
@@ -1736,22 +1652,19 @@
       state.obj.l = backupL;
       state.obj.w = backupW;
       state.obj.h = backupH;
-
       return Math.round(bestW);
     }
 
-    // 扫描生成长-宽可行边界图表
     function scanDesignSpace() {
-      setStatus('正在全量扫描物体尺寸空间...', 'indigo');
+      setStatus('开始全量扫描尺寸空间...', 'indigo');
       
       const maxL = state.channel.l1 + state.channel.l2;
       const lengthSamples = [];
       const widthBounds = [];
 
-      // 采样 10 个长度刻度
       const steps = 12;
       const minLSample = 40;
-      const maxLSample = Math.min(maxL, 500); // 长于5米基本上很难转弯了
+      const maxLSample = Math.min(maxL, 500);
       
       for (let i = 0; i <= steps; i++) {
         const L = minLSample + ((maxLSample - minLSample) / steps) * i;
@@ -1762,7 +1675,7 @@
 
       renderDesignSpaceChart(lengthSamples, widthBounds);
       updateAssessmentReport();
-      setStatus('设计空间扫描完成！', 'emerald');
+      setStatus('设计空间扫描就绪！', 'emerald');
     }
 
     function renderDesignSpaceChart(labels, data) {
@@ -1780,13 +1693,13 @@
             label: '最大通过宽度 (cm)',
             data: data,
             borderColor: '#06b6d4',
-            backgroundColor: 'rgba(6, 182, 212, 0.08)',
+            backgroundColor: 'rgba(6, 182, 212, 0.06)',
             fill: true,
-            tension: 0.3,
+            tension: 0.35,
             borderWidth: 2,
             pointBackgroundColor: '#a855f7',
             pointBorderColor: '#fff',
-            pointHoverRadius: 7
+            pointHoverRadius: 6
           }]
         },
         options: {
@@ -1797,14 +1710,14 @@
           },
           scales: {
             x: {
-              grid: { color: 'rgba(255,255,255,0.04)' },
+              grid: { color: 'rgba(255,255,255,0.03)' },
               ticks: { color: '#94a3b8' },
               title: { display: true, text: '物体长度 (L, cm)', color: '#94a3b8' }
             },
             y: {
-              grid: { color: 'rgba(255,255,255,0.04)' },
+              grid: { color: 'rgba(255,255,255,0.03)' },
               ticks: { color: '#94a3b8' },
-              title: { display: true, text: '可通过最大宽度 (W, cm)', color: '#94a3b8' }
+              title: { display: true, text: '可安全通过最大宽度 (W, cm)', color: '#94a3b8' }
             }
           },
           onClick: (e) => {
@@ -1814,25 +1727,22 @@
               const selectedL = labels[idx];
               const selectedW = data[idx];
 
-              // 更新滑动条和物体数据
               document.getElementById('input_objL').value = selectedL;
               document.getElementById('input_objW').value = selectedW;
               state.obj.l = selectedL;
               state.obj.w = selectedW;
               
-              // 同步UI文字并重置计算
               document.getElementById('val_objL').innerText = selectedL;
               document.getElementById('val_objW').innerText = selectedW;
               
               triggerPathRecalculation();
-              switchView('2d');
+              switchMainTab('simulation');
             }
           }
         }
       });
     }
 
-    // 更新评估数据概览面板
     function updateAssessmentPanel() {
       const maxL = assessMaxLength(state.obj.w, state.obj.h);
       const maxW = assessMaxWidth(state.obj.l, state.obj.h);
@@ -1842,13 +1752,11 @@
       document.getElementById('assess_max_W').innerText = maxW;
       document.getElementById('assess_ref_L').innerText = state.obj.l;
 
-      // 评估安全裕度
       const res = planPath();
       const gapBadge = document.getElementById('assess_clearance_status');
       const gapVal = document.getElementById('assess_min_gap');
 
       if (res.success) {
-        // 计算全轨迹中最小的间隙
         let minGap = Infinity;
         res.path.forEach(n => {
           const check = checkCollisionAndGap(n.x, n.y, n.theta);
@@ -1859,58 +1767,53 @@
         gapVal.innerText = physicalGap;
 
         if (physicalGap > 25) {
-          gapBadge.innerText = '极为宽松';
+          gapBadge.innerText = '宽松顺畅';
           gapBadge.className = 'text-xl font-bold font-tech text-emerald-400';
         } else if (physicalGap > 10) {
-          gapBadge.innerText = '安全顺畅';
+          gapBadge.innerText = '安全偏窄';
           gapBadge.className = 'text-xl font-bold font-tech text-cyan-400';
         } else {
-          gapBadge.innerText = '间隙紧张 (慎重搬运)';
+          gapBadge.innerText = '间隙极小';
           gapBadge.className = 'text-xl font-bold font-tech text-amber-500';
         }
       } else {
-        gapBadge.innerText = '无法通过';
+        gapBadge.innerText = '路线受阻';
         gapBadge.className = 'text-xl font-bold font-tech text-red-500';
         gapVal.innerText = '0';
       }
     }
 
-    // 组装评估详情文字列表
     function updateAssessmentReport() {
       const list = document.getElementById('assess_details_list');
-      
       const p = planPath();
-      const statusText = p.success ? '✅ 当前设定尺寸可通过' : '❌ 路线受阻';
+      const statusText = p.success ? '✅ 物体可安全通过' : '❌ 无法安全通过';
       
       let html = `
-        <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800 space-y-1">
-          <p class="text-slate-400">搬运状态评估结果</p>
-          <p class="text-sm font-bold text-white">${statusText}</p>
+        <div class="p-3 bg-slate-900/30 rounded-xl border border-slate-900 space-y-1">
+          <p class="text-slate-500 text-[11px]">搬运状态评估结果</p>
+          <p class="text-xs font-bold text-white">${statusText}</p>
         </div>
 
-        <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800 space-y-1">
-          <p class="text-slate-400">拐角通道限制</p>
-          <p class="text-sm text-slate-200">直道1宽: ${state.channel.w1}cm | 直道2宽: ${state.channel.w2}cm</p>
-          <p class="text-xs text-slate-400">拐弯角度: ${state.channel.angle}°</p>
+        <div class="p-3 bg-slate-900/30 rounded-xl border border-slate-900 space-y-1">
+          <p class="text-slate-500 text-[11px]">当前通道配置</p>
+          <p class="text-xs text-slate-200">直道宽: ${state.channel.w1}cm / 角度: ${state.channel.angle}°</p>
         </div>
 
-        <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800 space-y-1">
-          <p class="text-slate-400">搬运物体轮廓</p>
-          <p class="text-sm text-slate-200">长: ${state.obj.l}cm | 宽: ${state.obj.w}cm | 高: ${state.obj.h}cm</p>
-          <p class="text-xs text-slate-400">搬运离地高度: ${state.obj.z}cm</p>
+        <div class="p-3 bg-slate-900/30 rounded-xl border border-slate-900 space-y-1">
+          <p class="text-slate-500 text-[11px]">搬运物体规格</p>
+          <p class="text-xs text-slate-200">长x宽x高: ${state.obj.l}x${state.obj.w}x${state.obj.h}cm</p>
+          <p class="text-[10px] text-slate-400">避障抬高离地高度: ${state.obj.z}cm</p>
         </div>
       `;
 
       if (state.obstacles.length > 0) {
         html += `
-          <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800 space-y-1">
-            <p class="text-slate-400">通道障碍物清单</p>
-            <p class="text-xs text-slate-200">共 ${state.obstacles.length} 个圆柱形杂物：</p>
-            <ul class="list-disc pl-4 text-[11px] text-slate-400 mt-1">
+          <div class="p-3 bg-slate-900/30 rounded-xl border border-slate-900 space-y-1">
+            <p class="text-slate-500 text-[11px]">通道杂物清单 (${state.obstacles.length})</p>
+            <ul class="list-disc pl-4 text-[10px] text-slate-400 mt-1">
         `;
         state.obstacles.forEach((obs, idx) => {
-          const pos = getObstacleAbsoluteCoords(obs);
-          html += `<li>杂物${idx+1}: 半径 ${obs.radius}cm, 纵向沿墙: ${obs.d_long}cm</li>`;
+          html += `<li>障碍${idx+1}: 半径 ${obs.radius}cm, 沿墙: ${obs.d_long}cm</li>`;
         });
         html += `</ul></div>`;
       }
@@ -1918,7 +1821,6 @@
       list.innerHTML = html;
     }
 
-    // 导出简易文本评估报告
     function exportReport() {
       const p = planPath();
       const statusText = p.success ? '【安全可通过】' : '【路线受阻，无法通过】';
@@ -1936,25 +1838,81 @@
       text += `- 离地搬运高度：${state.obj.z}cm\n\n`;
       text += `二、通过性评估：\n`;
       text += `- 是否可通过：${statusText}\n`;
-      text += `- 当前配置下可通过的物体最大长度 (固定宽度 ${state.obj.w}cm)：${maxL} cm\n`;
-      text += `- 当前配置下可通过的物体最大宽度 (固定长度 ${state.obj.l}cm)：${maxW} cm\n\n`;
+      text += `- 最大可通过长度 (固定宽度 ${state.obj.w}cm)：${maxL} cm\n`;
+      text += `- 最大可通过宽度 (固定长度 ${state.obj.l}cm)：${maxW} cm\n\n`;
       
       if (state.obstacles.length > 0) {
         text += `三、圆柱杂物列表：\n`;
         state.obstacles.forEach((obs, index) => {
-          text += `- 障碍物 ${index + 1}：所属直道段=${obs.segment}, 相对定位墙面=${obs.wall}, 沿墙偏移=${obs.d_long}cm, 偏入深度=${obs.d_trans}cm, 半径=${obs.radius}cm\n`;
+          text += `- 障碍物 ${index + 1}：直道段=${obs.segment}, 参考墙面=${obs.wall}, 沿墙偏移=${obs.d_long}cm, 偏入深度=${obs.d_trans}cm, 半径=${obs.radius}cm\n`;
         });
       }
 
-      // 文本文件下载
       const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = 'TRANS-MES_Assessment_Report.txt';
+      link.download = 'TRANS-MES_Report.txt';
       link.click();
     }
 
-    // --- 9. UI 控制与绑定机制 ---
+    // --- 9. UI 交互控制面板 Tabs 绑定 ---
+    
+    // 切换主标签页：仿真沙盘 vs 极限尺寸评估
+    function switchMainTab(tabName) {
+      state.currentMainTab = tabName;
+      
+      // 容器切换
+      if (tabName === 'simulation') {
+        document.getElementById('tab_content_simulation').classList.remove('hidden');
+        document.getElementById('tab_content_assess').classList.add('hidden');
+        
+        // 重新缩放 Canvas，保证在分屏中尺寸完全正确
+        setTimeout(() => {
+          resize2DCanvas();
+          if (!scene3D) {
+            init3DScene();
+          } else {
+            sync3DScene();
+            resize3D();
+          }
+        }, 80);
+      } else {
+        document.getElementById('tab_content_simulation').classList.add('hidden');
+        document.getElementById('tab_content_assess').classList.remove('hidden');
+        
+        updateAssessmentPanel();
+        scanDesignSpace();
+      }
+
+      // 按钮高亮同步
+      ['simulation', 'assess'].forEach(t => {
+        const btn = document.getElementById(`tab_${t}`);
+        if (t === tabName) {
+          btn.className = 'px-5 py-1.5 text-xs font-semibold rounded-lg bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan transition-all';
+        } else {
+          btn.className = 'px-5 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition-all';
+        }
+      });
+    }
+
+    // 切换左侧控制栏 Tab
+    function switchControlTab(tabName) {
+      state.currentControlTab = tabName;
+
+      // 面板显示隐藏
+      ['channel', 'object', 'obstacle'].forEach(t => {
+        const panel = document.getElementById(`panel_${t}`);
+        const ctab = document.getElementById(`ctab_${t}`);
+        
+        if (t === tabName) {
+          panel.classList.remove('hidden');
+          ctab.classList.add('tab-active');
+        } else {
+          panel.classList.add('hidden');
+          ctab.classList.remove('tab-active');
+        }
+      });
+    }
 
     function setStatus(msg, colorClass) {
       const badge = document.getElementById('statusBadge');
@@ -1969,44 +1927,6 @@
       `;
     }
 
-    // 视图切换控制
-    function switchView(viewName) {
-      state.currentView = viewName;
-
-      // 隐藏所有容器
-      document.getElementById('container_2d').classList.add('hidden');
-      document.getElementById('container_3d').classList.add('hidden');
-      document.getElementById('container_assess').classList.add('hidden');
-
-      // 激活对应容器
-      if (viewName === '2d') {
-        document.getElementById('container_2d').classList.remove('hidden');
-        render2D();
-      } else if (viewName === '3d') {
-        document.getElementById('container_3d').classList.remove('hidden');
-        if (!scene3D) {
-          init3DScene();
-        } else {
-          sync3DScene();
-        }
-      } else if (viewName === 'assess') {
-        document.getElementById('container_assess').classList.remove('hidden');
-        updateAssessmentPanel();
-        scanDesignSpace();
-      }
-
-      // 按钮高亮同步
-      ['2d', '3d', 'assess'].forEach(v => {
-        const btn = document.getElementById(`btn_view_${v}`);
-        if (v === viewName) {
-          btn.className = 'px-3.5 py-1 text-xs font-medium rounded-md bg-gradient-to-r from-brand-cyan to-blue-600 text-white shadow-md transition-all';
-        } else {
-          btn.className = 'px-3.5 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition-all';
-        }
-      });
-    }
-
-    // 更新侧边栏滑块显示数值
     function syncSlidersUI() {
       // 通道
       document.getElementById('val_l1').innerText = state.channel.l1;
@@ -2023,23 +1943,22 @@
       document.getElementById('val_objZ').innerText = state.obj.z;
     }
 
-    // 动态生成杂物列表 UI
     function updateObstaclesUI() {
       const list = document.getElementById('obstacleList');
       list.innerHTML = '';
 
       state.obstacles.forEach((obs, index) => {
         const item = document.createElement('div');
-        item.className = 'flex items-center justify-between p-2.5 rounded-xl border border-slate-800 bg-slate-900/30 text-xs';
+        item.className = 'flex items-center justify-between p-2.5 rounded-xl border border-slate-900 bg-slate-950/20 text-xs';
         item.innerHTML = `
           <div class="space-y-0.5">
-            <p class="font-bold text-slate-300">障碍 ${index + 1} (圆柱)</p>
-            <p class="text-[10px] text-slate-500">
-              直道${obs.segment} | ${obs.wall === 'inner' ? '内侧' : '外侧'}墙 | 沿墙: ${obs.d_long}cm
+            <p class="font-bold text-slate-350">障碍 ${index + 1} (圆柱)</p>
+            <p class="text-[9px] text-slate-500">
+              段 ${obs.segment} | ${obs.wall === 'inner' ? '内侧' : '外侧'}墙 | 沿墙: ${obs.d_long}cm
             </p>
           </div>
-          <div class="flex items-center gap-2">
-            <span class="font-tech text-[10px] px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700/60 text-slate-400">R:${obs.radius}cm</span>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="font-tech text-[9px] px-1 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">R:${obs.radius}</span>
             <button onclick="deleteObstacle(${index})" class="text-slate-500 hover:text-red-400 transition-colors">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
@@ -2056,7 +1975,6 @@
       triggerPathRecalculation();
     }
 
-    // 弹窗管理
     function showAddObstacleModal() {
       document.getElementById('obstacleModal').classList.remove('hidden');
     }
@@ -2088,15 +2006,11 @@
       triggerPathRecalculation();
     }
 
-    // 使用说明模态框
     function toggleHandoffDoc() {
-      const modal = document.getElementById('handoffDocModal');
-      modal.classList.toggle('hidden');
+      document.getElementById('handoffDocModal').classList.toggle('hidden');
     }
 
-    // 绑定所有的滑块交互事件
     function bindInputs() {
-      // 通道配置
       const inputs = [
         { id: 'input_l1', target: ['channel', 'l1'], ui: 'val_l1' },
         { id: 'input_w1', target: ['channel', 'w1'], ui: 'val_w1' },
@@ -2104,7 +2018,7 @@
         { id: 'input_w2', target: ['channel', 'w2'], ui: 'val_w2' },
         { id: 'input_angle', target: ['channel', 'angle'], ui: 'val_angle', suffix: '°' },
         { id: 'input_hchannel', target: ['channel', 'h'], ui: 'val_hchannel' },
-        // 物体配置
+        
         { id: 'input_objL', target: ['obj', 'l'], ui: 'val_objL' },
         { id: 'input_objW', target: ['obj', 'w'], ui: 'val_objW' },
         { id: 'input_objH', target: ['obj', 'h'], ui: 'val_objH' },
@@ -2115,15 +2029,9 @@
         const el = document.getElementById(cfg.id);
         el.addEventListener('input', (e) => {
           const val = parseInt(e.target.value);
-          
-          // 更新 state
           const [cat, prop] = cfg.target;
           state[cat][prop] = val;
-
-          // 更新 UI 数字文本
           document.getElementById(cfg.ui).innerText = val + (cfg.suffix || '');
-
-          // 重新规划与重渲染
           triggerPathRecalculation();
         });
       });
@@ -2135,16 +2043,17 @@
       bindInputs();
       syncSlidersUI();
       
-      // 添加默认杂物
       addDefaultObstacles();
       
-      // 初始化 Canvas 2D
       init2DCanvas();
       
-      // 计算初始最佳路径并渲染
+      // 开启分屏联动：延迟初始化 3D
+      setTimeout(() => {
+        init3DScene();
+      }, 100);
+      
       triggerPathRecalculation();
       
-      // 自适应居中通道
       zoomToFit();
       render2D();
     });
