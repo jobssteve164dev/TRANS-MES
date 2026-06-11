@@ -1666,7 +1666,7 @@
         const nx = -Math.sin(rad);
         const ny = Math.cos(rad);
         if (x < 0) {
-          return -x + l2;
+          return -x + Math.abs(y) + l2;
         } else {
           const progress = x * ux + y * uy;
           const distPerp = Math.abs(x * nx + y * ny);
@@ -1758,8 +1758,34 @@
       
       openSet.push({ x: start.x, y: start.y, theta: start.theta, f: fScore.get(startKey) });
 
-      let maxIterations = 8000;
+      let maxIterations = 25000;
       let closestNodeToTarget = { x: start.x, y: start.y, theta: start.theta, dist: getHeuristic(start.x, start.y, target) };
+
+      // Pre-calculate constants for moves to avoid repeating inside loop
+      const R = targetObj.minRadius || 150;
+      const L = targetObj.l;
+      const d_off = targetObj.carrierType === 'forklift' ? -L/2 : L/2;
+      const dtheta_val = dynamicDs / R;
+
+      const getTurnMove = (theta_val, ds_val, dt_val) => {
+        if (dt_val === 0) {
+          return {
+            xoff: ds_val * Math.cos(theta_val),
+            yoff: ds_val * Math.sin(theta_val),
+            dt: 0,
+            ds: ds_val
+          };
+        }
+        const S = Math.sign(dt_val * ds_val);
+        const px = S * R * (Math.sin(theta_val + dt_val) - Math.sin(theta_val));
+        const py = -S * R * (Math.cos(theta_val + dt_val) - Math.cos(theta_val));
+        return {
+          xoff: px + d_off * (Math.cos(theta_val + dt_val) - Math.cos(theta_val)),
+          yoff: py + d_off * (Math.sin(theta_val + dt_val) - Math.sin(theta_val)),
+          dt: dt_val,
+          ds: ds_val
+        };
+      };
 
       while (openSet.size > 0 && maxIterations-- > 0) {
         const current = openSet.pop();
@@ -1795,38 +1821,13 @@
         const dTheta = (CONFIG.angleStep * Math.PI) / 180;
         let moves = [];
         if (targetObj.carrierType === 'forklift' || targetObj.carrierType === 'fws') {
-          const R = targetObj.minRadius || 150;
-          const L = targetObj.l;
-          const d_off = targetObj.carrierType === 'forklift' ? -L/2 : L/2;
-          const dtheta_val = dynamicDs / R;
-
-          const getTurnMove = (ds_val, dt_val) => {
-            if (dt_val === 0) {
-              return {
-                xoff: ds_val * Math.cos(current.theta),
-                yoff: ds_val * Math.sin(current.theta),
-                dt: 0,
-                ds: ds_val
-              };
-            }
-            const S = Math.sign(dt_val * ds_val);
-            const px = S * R * (Math.sin(current.theta + dt_val) - Math.sin(current.theta));
-            const py = -S * R * (Math.cos(current.theta + dt_val) - Math.cos(current.theta));
-            return {
-              xoff: px + d_off * (Math.cos(current.theta + dt_val) - Math.cos(current.theta)),
-              yoff: py + d_off * (Math.sin(current.theta + dt_val) - Math.sin(current.theta)),
-              dt: dt_val,
-              ds: ds_val
-            };
-          };
-
           moves = [
-            getTurnMove(dynamicDs, 0),
-            getTurnMove(-dynamicDs, 0),
-            getTurnMove(dynamicDs, dtheta_val),
-            getTurnMove(dynamicDs, -dtheta_val),
-            getTurnMove(-dynamicDs, -dtheta_val),
-            getTurnMove(-dynamicDs, dtheta_val)
+            getTurnMove(current.theta, dynamicDs, 0),
+            getTurnMove(current.theta, -dynamicDs, 0),
+            getTurnMove(current.theta, dynamicDs, dtheta_val),
+            getTurnMove(current.theta, dynamicDs, -dtheta_val),
+            getTurnMove(current.theta, -dynamicDs, -dtheta_val),
+            getTurnMove(current.theta, -dynamicDs, dtheta_val)
           ];
         } else {
           moves = [
