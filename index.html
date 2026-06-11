@@ -1608,13 +1608,16 @@
       
       if (type === 'L') {
         const rad = (angle * Math.PI) / 180;
+        const ux = Math.cos(rad);
+        const uy = Math.sin(rad);
+        const nx = -Math.sin(rad);
+        const ny = Math.cos(rad);
         if (x < 0) {
           return -x + l2;
         } else {
-          const ux = Math.cos(rad);
-          const uy = Math.sin(rad);
           const progress = x * ux + y * uy;
-          return Math.max(0, l2 - progress);
+          const distPerp = Math.abs(x * nx + y * ny);
+          return Math.max(0, l2 - progress) + distPerp;
         }
       } else {
         if (targetDir === 'right') {
@@ -1639,6 +1642,10 @@
       const targetObj = customObj || state.obj;
       const { type, targetDir, l1, l2, w1, w2, angle } = state.channel;
       const rad = (angle * Math.PI) / 180;
+
+      // 动态计算搜索网格与步长以匹配不同尺度的通道，彻底打通 500cm 大通道的 A* 寻路效率瓶颈
+      const dynamicGridSize = Math.max(12, Math.round(Math.min(w1, w2) / 18));
+      const dynamicDs = Math.max(15, Math.round(dynamicGridSize * 1.25));
 
       const start = getStartConfig(targetObj);
       
@@ -1685,8 +1692,8 @@
       const fScore = new Map();
 
       function stateKey(x, y, theta) {
-        const gx = Math.round(x / CONFIG.gridSize);
-        const gy = Math.round(y / CONFIG.gridSize);
+        const gx = Math.round(x / dynamicGridSize);
+        const gy = Math.round(y / dynamicGridSize);
         let gtheta = Math.round((theta * 180 / Math.PI) / CONFIG.angleStep) % 24;
         if (gtheta < 0) gtheta += 24;
         return `${gx},${gy},${gtheta}`;
@@ -1698,7 +1705,7 @@
       
       openSet.push({ x: start.x, y: start.y, theta: start.theta, f: fScore.get(startKey) });
 
-      let maxIterations = 4000;
+      let maxIterations = 8000;
       let closestNodeToTarget = { x: start.x, y: start.y, theta: start.theta, dist: getHeuristic(start.x, start.y, target) };
 
       while (openSet.size > 0 && maxIterations-- > 0) {
@@ -1717,7 +1724,7 @@
         let angleDiff = Math.abs(current.theta - target.theta);
         angleDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff);
         
-        if (distToTarget < 25 && angleDiff < 0.35) {
+        if (distToTarget < Math.max(25, dynamicDs * 1.2) && angleDiff < 0.4) {
           let path = [];
           let curr = current;
           let k = stateKey(curr.x, curr.y, curr.theta);
@@ -1734,14 +1741,14 @@
 
         const dTheta = (CONFIG.angleStep * Math.PI) / 180;
         const moves = [
-          { ds: 15, dt: 0 },
-          { ds: -15, dt: 0 },
+          { ds: dynamicDs, dt: 0 },
+          { ds: -dynamicDs, dt: 0 },
           { ds: 0, dt: dTheta },
           { ds: 0, dt: -dTheta },
-          { ds: 15, dt: dTheta },
-          { ds: 15, dt: -dTheta },
-          { ds: -15, dt: dTheta },
-          { ds: -15, dt: -dTheta }
+          { ds: dynamicDs, dt: dTheta },
+          { ds: dynamicDs, dt: -dTheta },
+          { ds: -dynamicDs, dt: dTheta },
+          { ds: -dynamicDs, dt: -dTheta }
         ];
 
         for (let move of moves) {
