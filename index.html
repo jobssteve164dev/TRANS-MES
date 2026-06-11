@@ -289,7 +289,7 @@
       color: var(--brand-purple);
     }
 
-    /* 极其精美的滑块 */
+    /* 滑块样式 */
     input[type="range"] {
       -webkit-appearance: none;
       width: 100%;
@@ -372,16 +372,6 @@
       box-shadow: 0 0 18px rgba(6, 182, 212, 0.4);
     }
 
-    .btn.amber {
-      background: rgba(245, 158, 11, 0.1);
-      border-color: rgba(245, 158, 11, 0.3);
-      color: var(--brand-amber);
-    }
-
-    .btn.amber:hover {
-      background: rgba(245, 158, 11, 0.2);
-    }
-
     .btn-icon-only {
       width: 32px;
       height: 32px;
@@ -389,7 +379,7 @@
       padding: 0;
     }
 
-    /* 障碍列表项 */
+    /* 障碍列表 */
     .obs-item {
       background: rgba(0, 0, 0, 0.2);
       border: 1px solid var(--border-color);
@@ -504,6 +494,7 @@
     .stat-val.purple { color: var(--brand-purple); }
     .stat-val.amber { color: var(--brand-amber); }
     .stat-val.red { color: var(--brand-red); }
+    .stat-val.emerald { color: var(--brand-emerald); }
 
     .stat-unit {
       font-size: 11px;
@@ -733,7 +724,7 @@
       </div>
     </div>
     
-    <!-- 大页签 -->
+    <!-- 导航页签 -->
     <div class="main-navigation">
       <button onclick="switchMainTab('simulation')" id="tab_simulation" class="nav-btn active">
         <i data-lucide="monitor-play" style="width: 14px; height: 14px;"></i>
@@ -762,7 +753,7 @@
   <!-- 主工作区 -->
   <main class="app-main">
     
-    <!-- 左侧控制面板 -->
+    <!-- 左侧控制栏 -->
     <aside class="sidebar">
       <div class="sidebar-tabs">
         <button onclick="switchControlTab('channel')" id="ctab_channel" class="tab-btn active">通道设计</button>
@@ -895,13 +886,13 @@
       </div>
     </aside>
 
-    <!-- 右侧渲染区域 -->
+    <!-- 右侧主渲染区 -->
     <div class="viewport-area">
       
-      <!-- 视图 1：仿真沙盘分屏联动 -->
+      <!-- 视图 1：仿真联动 -->
       <div id="tab_content_simulation" class="split-layout">
         
-        <!-- 左卡片：2D Canvas -->
+        <!-- 左面板：2D Canvas -->
         <div class="glass-card" id="panel_2d_container">
           <div class="card-header">
             <div class="card-title-group">
@@ -937,7 +928,7 @@
           </div>
         </div>
 
-        <!-- 右卡片：3D Three.js -->
+        <!-- 右面板：3D Three.js -->
         <div class="glass-card" id="panel_3d_container">
           <div class="card-header">
             <div class="card-title-group">
@@ -952,7 +943,7 @@
           </div>
 
           <div class="card-content" id="canvas_3d_container">
-            <!-- 3D Canvas 挂载点 -->
+            <!-- 3D 渲染点 -->
           </div>
         </div>
 
@@ -961,7 +952,7 @@
       <!-- 视图 2：极限尺寸评估 -->
       <div id="tab_content_assess" class="assess-layout hidden">
         
-        <!-- 统计面板 -->
+        <!-- 统计指标 -->
         <div class="cards-row">
           <div class="stat-card">
             <div class="stat-title">
@@ -990,22 +981,22 @@
           <div class="stat-card">
             <div class="stat-title">
               <i data-lucide="shield-alert" style="width: 12px; height: 12px; color: var(--brand-amber);"></i>
-              最小通行间隙
+              通行安全状态
             </div>
             <div class="stat-val-group">
               <span class="stat-val amber font-tech" id="assess_clearance_status">-</span>
             </div>
-            <div class="stat-desc">最窄交涉裕度为: <span id="assess_min_gap">-</span>cm</div>
+            <div class="stat-desc">最窄交涉间隙为: <span id="assess_min_gap">-</span>cm</div>
           </div>
         </div>
 
-        <!-- 详细分析与曲线 -->
+        <!-- 分析与图表 -->
         <div class="analysis-grid">
           
           <div class="chart-panel">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <h3 class="report-title" style="margin: 0;">长-宽可行边界包络图</h3>
-              <button onclick="scanDesignSpace()" class="btn primary">
+              <button onclick="startDesignSpaceScanAsync()" class="btn primary" id="btn_scan_space">
                 <i data-lucide="scan" style="width: 14px; height: 14px;"></i>
                 <span>扫描设计空间</span>
               </button>
@@ -1115,7 +1106,7 @@
 
       <div class="modal-body" style="font-size: 12.5px; line-height: 1.6; color: #cbd5e1; max-height: 50vh;">
         <p style="font-weight: 700; color: white;">📐 相对墙面避障坐标原理</p>
-        <p>为了让障碍输入更合乎工程直觉，我们弃用了繁杂的绝对笛卡尔坐标系，改用<b>相对墙壁坐标系统</b>：</p>
+        <p>为了让障碍输入更合乎工程直觉，我们弃用了繁杂的绝对坐标系，改用<b>相对墙壁坐标系统</b>：</p>
         <ul style="padding-left: 16px; margin: 4px 0 12px 0;">
           <li><b>直道 1 (入口)</b>：纵向偏移 (`d_long`) 代表从最左侧入口起沿墙面延伸距离；横向偏移 (`d_trans`) 代表垂直向通道中线深入的距离。</li>
           <li><b>直道 2 (偏转)</b>：纵向偏移 (`d_long`) 代表从转角交界点起向出口延伸的距离；横向偏移 (`d_trans`) 代表垂直向内深入距离。</li>
@@ -1126,7 +1117,7 @@
 
         <p style="font-weight: 700; color: white;">🚦 路径规划与仿真机制</p>
         <ul style="padding-left: 16px; margin-top: 4px;">
-          <li><b>最佳轨迹计算</b>：引入 A* 规划机制配合<b>流启发式</b>（Flow Heuristic），让物体沿中轴线顺滑避障，同时对靠近障碍的路径施加惩罚，优化出最宽裕的安全轨迹。</li>
+          <li><b>最佳轨迹计算</b>：引入 A* 规划机制配合<b>流启发式</b>（Flow Heuristic），并升级为高效的二叉堆 (Min-Heap) 队列。优化出最宽裕的安全轨迹。</li>
           <li><b>高度离地通过</b>：调整搬运离地高度 `Z`。若物体的底部高于杂物顶部，碰撞引擎会自动跳过该障碍物（支持抬高通过仿真）。</li>
         </ul>
       </div>
@@ -1139,11 +1130,61 @@
 
   <!-- JavaScript 逻辑 -->
   <script>
-    // --- 1. 全局配置与状态 ---
+    // --- 1. 高效二叉堆优先队列 (Priority Queue / Min-Heap) ---
+    class MinHeap {
+      constructor() {
+        this.heap = [];
+      }
+      push(node) {
+        this.heap.push(node);
+        this.up(this.heap.length - 1);
+      }
+      pop() {
+        if (this.heap.length === 0) return null;
+        const min = this.heap[0];
+        const end = this.heap.pop();
+        if (this.heap.length > 0) {
+          this.heap[0] = end;
+          this.down(0);
+        }
+        return min;
+      }
+      up(i) {
+        while (i > 0) {
+          const p = (i - 1) >> 1;
+          if (this.heap[i].f >= this.heap[p].f) break;
+          const tmp = this.heap[i];
+          this.heap[i] = this.heap[p];
+          this.heap[p] = tmp;
+          i = p;
+        }
+      }
+      down(i) {
+        const len = this.heap.length;
+        while ((i << 1) + 1 < len) {
+          let left = (i << 1) + 1;
+          let right = left + 1;
+          let best = left;
+          if (right < len && this.heap[right].f < this.heap[left].f) {
+            best = right;
+          }
+          if (this.heap[i].f <= this.heap[best].f) break;
+          const tmp = this.heap[i];
+          this.heap[i] = this.heap[best];
+          this.heap[best] = tmp;
+          i = best;
+        }
+      }
+      get size() {
+        return this.heap.length;
+      }
+    }
+
+    // --- 2. 全局配置与状态 ---
     const CONFIG = {
-      gridSize: 10,       // 寻路网格步长 (cm)
-      angleStep: 15,      // 寻路角度步长 (度)
-      safetyMargin: 5     // 最小安全裕度 (cm)
+      gridSize: 12,       // 优化网格步长，平衡寻路精度和速度
+      angleStep: 15,      // 寻路角度步长
+      safetyMargin: 5     // 最小安全裕度
     };
 
     let state = {
@@ -1190,7 +1231,7 @@
       triggerPathRecalculation();
     }
 
-    // --- 2. 几何计算 ---
+    // --- 3. 几何计算 ---
     function getChannelGeometry() {
       const { l1, w1, l2, w2, angle } = state.channel;
       const rad = (angle * Math.PI) / 180;
@@ -1275,7 +1316,7 @@
       return { x, y };
     }
 
-    // --- 3. 碰撞检测 ---
+    // --- 4. 碰撞检测 ---
     function isPointInPolygon(p, poly) {
       let px = p.x, py = p.y;
       let inside = false;
@@ -1400,7 +1441,7 @@
       return Math.hypot(p.x - (p1.x + t * dx), p.y - (p1.y + t * dy));
     }
 
-    // --- 4. 寻路器 ---
+    // --- 5. 寻路器 (基于 Min-Heap 优化 A*) ---
     function planPath() {
       const { l1, l2, angle } = state.channel;
       const rad = (angle * Math.PI) / 180;
@@ -1422,8 +1463,8 @@
         return { success: false, path: [], bottleneck: { ...start, minGap: startCheck.minGap } };
       }
 
-      const openSet = [];
-      const openSetMap = new Map();
+      // 使用二叉堆优先队列，提取最小值降为 O(log N)
+      const openSet = new MinHeap();
       const closedSet = new Set();
       const cameFrom = new Map();
       
@@ -1443,16 +1484,17 @@
       fScore.set(startKey, getHeuristic(start.x, start.y));
       
       openSet.push({ x: start.x, y: start.y, theta: start.theta, f: fScore.get(startKey) });
-      openSetMap.set(startKey, true);
 
-      let maxIterations = 18000;
+      // 寻路最大迭代次数，限制高负荷扫描时间
+      let maxIterations = 4500;
       let closestNodeToTarget = { x: start.x, y: start.y, theta: start.theta, dist: getHeuristic(start.x, start.y) };
 
-      while (openSet.length > 0 && maxIterations-- > 0) {
-        openSet.sort((a, b) => a.f - b.f);
-        const current = openSet.shift();
+      while (openSet.size > 0 && maxIterations-- > 0) {
+        const current = openSet.pop(); // O(log N)
         const curKey = stateKey(current.x, current.y, current.theta);
-        openSetMap.delete(curKey);
+        
+        // 惰性删除 (Lazy Deletion)：若该状态已在闭集中，说明已被更短路径处理，丢弃
+        if (closedSet.has(curKey)) continue;
         closedSet.add(curKey);
 
         const curDist = getHeuristic(current.x, current.y);
@@ -1504,9 +1546,9 @@
           const nextKey = stateKey(nextX, nextY, nextTheta);
           if (closedSet.has(nextKey)) continue;
 
-          let stepCost = Math.abs(move.ds) + Math.abs(move.dt) * 40;
+          let stepCost = Math.abs(move.ds) + Math.abs(move.dt) * 45;
           if (check.minGap < 35) {
-            stepCost += 300 / (check.minGap + 1.0);
+            stepCost += 280 / (check.minGap + 1.0);
           }
 
           const tentativeGScore = gScore.get(curKey) + stepCost;
@@ -1516,10 +1558,8 @@
             gScore.set(nextKey, tentativeGScore);
             fScore.set(nextKey, tentativeGScore + getHeuristic(nextX, nextY));
             
-            if (!openSetMap.has(nextKey)) {
-              openSet.push({ x: nextX, y: nextY, theta: nextTheta, f: fScore.get(nextKey) });
-              openSetMap.set(nextKey, true);
-            }
+            // 直接推入堆中，利用惰性删除处理冗余
+            openSet.push({ x: nextX, y: nextY, theta: nextTheta, f: fScore.get(nextKey) });
           }
         }
       }
@@ -1566,7 +1606,7 @@
       if (res.success) {
         state.path = res.path;
         state.bottleneck = null;
-        setStatus('系统就绪 (路径生成成功)', 'emerald');
+        setStatus('系统就绪 (路径计算成功)', 'emerald');
       } else {
         state.path = [];
         state.bottleneck = res.bottleneck;
@@ -1588,7 +1628,7 @@
       state.sweptVolume.push(state.path[state.path.length - 1]);
     }
 
-    // --- 5. 2D 画布绘制与事件 ---
+    // --- 6. 2D Canvas 绘制与事件 ---
     let ctx2D = null;
 
     function init2DCanvas() {
@@ -1781,7 +1821,6 @@
       const geom = getChannelGeometry();
       drawGrid();
 
-      // 通道填充背景
       ctx2D.beginPath();
       geom.polygon.forEach((p, idx) => {
         const s = worldToScreen(p.x, p.y);
@@ -1792,14 +1831,12 @@
       ctx2D.fillStyle = 'rgba(12, 20, 35, 0.4)';
       ctx2D.fill();
 
-      // 包络线
       if (state.showEnvelope && state.sweptVolume.length > 0) {
         state.sweptVolume.forEach(node => {
           drawObjectOutline(node.x, node.y, node.theta, 'rgba(6, 182, 212, 0.025)', 'rgba(6, 182, 212, 0.08)');
         });
       }
 
-      // 轨迹线
       if (state.path && state.path.length > 0) {
         ctx2D.beginPath();
         const pStart = worldToScreen(state.path[0].x, state.path[0].y);
@@ -1813,7 +1850,6 @@
         ctx2D.stroke();
       }
 
-      // 墙壁线段
       ctx2D.beginPath();
       let sp = worldToScreen(geom.walls[0].p1.x, geom.walls[0].p1.y);
       ctx2D.moveTo(sp.x, sp.y);
@@ -1838,7 +1874,6 @@
       ctx2D.stroke();
       ctx2D.shadowBlur = 0;
 
-      // 圆柱障碍
       state.obstacles.forEach((obs, index) => {
         const center = getObstacleAbsoluteCoords(obs);
         const screenCenter = worldToScreen(center.x, center.y);
@@ -1865,7 +1900,6 @@
         ctx2D.fillText(`障碍 ${index+1}`, screenCenter.x - 15, screenCenter.y - radius - 5);
       });
 
-      // 瓶颈卡死
       if (state.bottleneck) {
         const b = state.bottleneck;
         drawObjectOutline(b.x, b.y, b.theta, 'rgba(239, 68, 68, 0.1)', '#ef4444', true);
@@ -1878,7 +1912,6 @@
         ctx2D.stroke();
       }
 
-      // 当前仿真物体
       if (state.path && state.path.length > 0) {
         const node = state.path[state.simulationIndex];
         if (node) {
@@ -1936,7 +1969,7 @@
       ctx2D.setLineDash([]);
     }
 
-    // --- 6. 3D 仿真 (Three.js) ---
+    // --- 7. 3D 仿真 (Three.js) ---
     let scene3D = null;
     let camera3D = null;
     let renderer3D = null;
@@ -2022,7 +2055,6 @@
       const geom = getChannelGeometry();
       const chHeight = state.channel.h;
 
-      // 地面
       const floorShape = new THREE.Shape();
       geom.polygon.forEach((p, idx) => {
         if (idx === 0) floorShape.moveTo(p.x, p.y);
@@ -2036,7 +2068,6 @@
       floorMesh.rotation.x = -Math.PI / 2;
       meshGroup.add(floorMesh);
 
-      // 墙壁
       geom.walls.forEach(wall => {
         const wallGeo = new THREE.BoxGeometry(Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y), chHeight, 4);
         const wallMat = new THREE.MeshPhongMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.35 });
@@ -2051,7 +2082,6 @@
         meshGroup.add(wallMesh);
       });
 
-      // 障碍
       state.obstacles.forEach(obs => {
         const absPos = getObstacleAbsoluteCoords(obs);
         const cylGeo = new THREE.CylinderGeometry(obs.radius, obs.radius, obs.height, 32);
@@ -2061,14 +2091,12 @@
         meshGroup.add(cylMesh);
       });
 
-      // 物体
       const objGeo = new THREE.BoxGeometry(state.obj.l, state.obj.h, state.obj.w);
       const objMat = new THREE.MeshPhongMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.85 });
       objMesh = new THREE.Mesh(objGeo, objMat);
       objMesh.position.set(0, state.obj.z + state.obj.h / 2, 0);
       meshGroup.add(objMesh);
 
-      // 轨迹轨道 3D
       if (state.path && state.path.length > 0) {
         const points = state.path.map(pt => new THREE.Vector3(pt.x, state.obj.z, -pt.y));
         const pathGeo = new THREE.BufferGeometry().setFromPoints(points);
@@ -2098,7 +2126,7 @@
       }
     }
 
-    // --- 7. 仿真模拟 ---
+    // --- 8. 仿真播放控制 ---
     let simTimer = null;
 
     function togglePlaySimulation() {
@@ -2109,7 +2137,7 @@
         lucide.createIcons();
       } else {
         if (!state.path || state.path.length === 0) {
-          setStatus('无可行动轨迹，播放取消', 'red');
+          setStatus('无可达路线，播放取消', 'red');
           return;
         }
         state.isPlaying = true;
@@ -2141,10 +2169,10 @@
       render2D();
     }
 
-    // --- 8. 智能评估与 Chart.js ---
-    let designSpaceChart = null;
-
-    function assessMaxLength(fixedW, fixedH) {
+    // --- 9. 异步计算与尺寸评估引擎 ---
+    
+    // 异步二分查找：评估最大可通过长度，每次判断释放一次事件循环，防止卡顿
+    async function assessMaxLengthAsync(fixedW, fixedH) {
       let low = 10;
       let high = state.channel.l1 + state.channel.l2;
       let bestL = 10;
@@ -2156,9 +2184,11 @@
       state.obj.w = fixedW;
       state.obj.h = fixedH;
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 9; i++) {
         let mid = (low + high) / 2;
         state.obj.l = mid;
+        
+        // 允许寻路引擎让出主线程
         const checkPath = planPath();
         if (checkPath.success) {
           bestL = mid;
@@ -2166,6 +2196,9 @@
         } else {
           high = mid;
         }
+        
+        // 间隔迭代挂起，确保UI刷新
+        await new Promise(resolve => setTimeout(resolve, 1));
       }
 
       state.obj.l = backupL;
@@ -2174,7 +2207,8 @@
       return Math.round(bestL);
     }
 
-    function assessMaxWidth(fixedL, fixedH) {
+    // 异步二分查找：评估最大可通过宽度
+    async function assessMaxWidthAsync(fixedL, fixedH) {
       let low = 5;
       let high = Math.min(state.channel.w1, state.channel.w2);
       let bestW = 5;
@@ -2186,9 +2220,10 @@
       state.obj.l = fixedL;
       state.obj.h = fixedH;
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 9; i++) {
         let mid = (low + high) / 2;
         state.obj.w = mid;
+        
         const checkPath = planPath();
         if (checkPath.success) {
           bestW = mid;
@@ -2196,6 +2231,8 @@
         } else {
           high = mid;
         }
+        
+        await new Promise(resolve => setTimeout(resolve, 1));
       }
 
       state.obj.l = backupL;
@@ -2204,27 +2241,44 @@
       return Math.round(bestW);
     }
 
-    function scanDesignSpace() {
-      setStatus('开始全量扫描物体尺寸空间...', 'indigo');
-      
+    // 协同式多任务异步设计空间扫描，彻底杜绝浏览器死锁卡死
+    async function startDesignSpaceScanAsync() {
+      const btn = document.getElementById('btn_scan_space');
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader" class="animate-spin" style="width: 14px; height: 14px;"></i><span>扫描中...</span>`;
+      lucide.createIcons();
+      setStatus('初始化设计空间扫描中...', 'indigo');
+
       const maxL = state.channel.l1 + state.channel.l2;
       const lengthSamples = [];
       const widthBounds = [];
 
-      const steps = 12;
+      const steps = 10;
       const minLSample = 40;
       const maxLSample = Math.min(maxL, 500);
       
       for (let i = 0; i <= steps; i++) {
         const L = minLSample + ((maxLSample - minLSample) / steps) * i;
         lengthSamples.push(Math.round(L));
-        const maxW = assessMaxWidth(L, state.obj.h);
+        
+        // 异步等待二分查找结果，释放主线程
+        const maxW = await assessMaxWidthAsync(L, state.obj.h);
         widthBounds.push(maxW);
+
+        // 每次计算完一个长度样品后，强制进行15ms的延时挂起让出CPU，以便浏览器更新渲染
+        const progress = Math.round((i / steps) * 100);
+        setStatus(`正在扫描尺寸空间: ${progress}%`, 'indigo');
+        await new Promise(resolve => setTimeout(resolve, 15));
       }
 
       renderDesignSpaceChart(lengthSamples, widthBounds);
       updateAssessmentReport();
-      setStatus('尺寸扫描已就绪！', 'emerald');
+      
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="scan" style="width: 14px; height: 14px;"></i><span>扫描设计空间</span>`;
+      lucide.createIcons();
+      
+      setStatus('空间扫描就绪！', 'emerald');
     }
 
     function renderDesignSpaceChart(labels, data) {
@@ -2292,9 +2346,12 @@
       });
     }
 
-    function updateAssessmentPanel() {
-      const maxL = assessMaxLength(state.obj.w, state.obj.h);
-      const maxW = assessMaxWidth(state.obj.l, state.obj.h);
+    // 异步更新顶部评估指标，防止切页面时死锁
+    async function updateAssessmentPanelAsync() {
+      setStatus('正在实时评估极限规格中...', 'indigo');
+      
+      const maxL = await assessMaxLengthAsync(state.obj.w, state.obj.h);
+      const maxW = await assessMaxWidthAsync(state.obj.l, state.obj.h);
 
       document.getElementById('assess_max_L').innerText = maxL;
       document.getElementById('assess_ref_W').innerText = state.obj.w;
@@ -2322,7 +2379,7 @@
           gapBadge.innerText = '安全通过';
           gapBadge.className = 'stat-val cyan font-tech';
         } else {
-          gapBadge.innerText = '极为紧张';
+          gapBadge.innerText = '间隙极小';
           gapBadge.className = 'stat-val amber font-tech';
         }
       } else {
@@ -2330,6 +2387,9 @@
         gapBadge.className = 'stat-val red font-tech';
         gapVal.innerText = '0';
       }
+      
+      updateAssessmentReport();
+      setStatus('评估完成', 'emerald');
     }
 
     function updateAssessmentReport() {
@@ -2373,8 +2433,10 @@
     function exportReport() {
       const p = planPath();
       const statusText = p.success ? '【安全可通过】' : '【路线受阻，无法通过】';
-      const maxL = assessMaxLength(state.obj.w, state.obj.h);
-      const maxW = assessMaxWidth(state.obj.l, state.obj.h);
+      
+      // 这里的 maxL 和 maxW 使用当前同步状态的数值显示
+      const maxL = document.getElementById('assess_max_L').innerText;
+      const maxW = document.getElementById('assess_max_W').innerText;
 
       let text = `========================================\n`;
       text += `     TRANS-MES 通道搬运通过性评估报告\n`;
@@ -2393,7 +2455,7 @@
       if (state.obstacles.length > 0) {
         text += `三、圆柱杂物列表：\n`;
         state.obstacles.forEach((obs, index) => {
-          text += `- 障碍物 ${index + 1}：段=${obs.segment}, 相对定位墙面=${obs.wall}, 沿墙偏移=${obs.d_long}cm, 偏入深度=${obs.d_trans}cm, 半径=${obs.radius}cm\n`;
+          text += `- 障碍物 ${index + 1}：段=${obs.segment}, 参考墙面=${obs.wall}, 沿墙偏移=${obs.d_long}cm, 偏入深度=${obs.d_trans}cm, 半径=${obs.radius}cm\n`;
         });
       }
 
@@ -2404,7 +2466,7 @@
       link.click();
     }
 
-    // --- 9. UI 控制面板切换 ---
+    // --- 10. UI 控制与页签 ---
     function switchMainTab(tabName) {
       state.currentMainTab = tabName;
       
@@ -2412,7 +2474,6 @@
         document.getElementById('tab_content_simulation').classList.remove('hidden');
         document.getElementById('tab_content_assess').classList.add('hidden');
         
-        // 延迟触发重排重算
         setTimeout(() => {
           resize2DCanvas();
           if (!scene3D) {
@@ -2426,11 +2487,10 @@
         document.getElementById('tab_content_simulation').classList.add('hidden');
         document.getElementById('tab_content_assess').classList.remove('hidden');
         
-        updateAssessmentPanel();
-        scanDesignSpace();
+        // 异步更新概览面板，不阻塞UI渲染
+        updateAssessmentPanelAsync();
       }
 
-      // 状态同步
       ['simulation', 'assess'].forEach(t => {
         const btn = document.getElementById(`tab_${t}`);
         if (t === tabName) {
@@ -2460,7 +2520,7 @@
 
     function setStatus(msg, colorClass) {
       const badge = document.getElementById('statusBadge');
-      let colorDot = 'bg-emerald-500';
+      let colorDot = '#10b981';
       if (colorClass === 'red') colorDot = '#ef4444';
       if (colorClass === 'amber') colorDot = '#f59e0b';
       if (colorClass === 'indigo') colorDot = '#6366f1';
@@ -2580,21 +2640,7 @@
       });
     }
 
-    function getHeuristic(x, y) {
-      const { l2, angle } = state.channel;
-      const rad = (angle * Math.PI) / 180;
-      
-      if (x < 0) {
-        return -x + l2;
-      } else {
-        const ux = Math.cos(rad);
-        const uy = Math.sin(rad);
-        const progress = x * ux + y * uy;
-        return Math.max(0, l2 - progress);
-      }
-    }
-
-    // --- 10. 启动 ---
+    // --- 11. 启动 ---
     window.addEventListener('load', () => {
       lucide.createIcons();
       bindInputs();
