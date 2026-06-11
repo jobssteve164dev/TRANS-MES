@@ -283,10 +283,39 @@
     .val-display {
       font-weight: 700;
       color: var(--brand-cyan);
+      cursor: pointer;
+      border-bottom: 1px dashed rgba(6, 182, 212, 0.4);
+      padding: 0 2px;
+      transition: all 0.2s;
+    }
+    .val-display:hover {
+      background: rgba(6, 182, 212, 0.15);
+      border-radius: 3px;
     }
     
     .val-display.purple {
       color: var(--brand-purple);
+      border-bottom: 1px dashed rgba(168, 85, 247, 0.4);
+    }
+    .val-display.purple:hover {
+      background: rgba(168, 85, 247, 0.15);
+    }
+
+    .inline-edit-input {
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--brand-cyan);
+      color: #fff;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      width: 45px;
+      text-align: right;
+      padding: 0 2px;
+      border-radius: 4px;
+      outline: none;
+    }
+    .inline-edit-input.purple {
+      border-color: var(--brand-purple);
     }
 
     input[type="range"] {
@@ -3050,13 +3079,69 @@
 
       inputs.forEach(cfg => {
         const el = document.getElementById(cfg.id);
+        const uiEl = document.getElementById(cfg.ui);
+
+        // Update when slider changes
         el.addEventListener('input', (e) => {
           const val = parseInt(e.target.value);
           const [cat, prop] = cfg.target;
           state[cat][prop] = val;
-          document.getElementById(cfg.ui).innerText = val + (cfg.suffix || '');
+          uiEl.innerText = val + (cfg.suffix || '');
           triggerPathRecalculation();
         });
+
+        // Click to edit number directly
+        if (uiEl) {
+          uiEl.addEventListener('click', () => {
+            // If already editing, do nothing
+            if (uiEl.querySelector('input')) return;
+
+            const isPurple = uiEl.classList.contains('purple');
+            const currentVal = state[cfg.target[0]][cfg.target[1]];
+
+            const editInput = document.createElement('input');
+            editInput.type = 'number';
+            editInput.className = 'inline-edit-input' + (isPurple ? ' purple' : '');
+            editInput.min = el.min;
+            editInput.max = el.max;
+            editInput.value = currentVal;
+            
+            uiEl.innerText = '';
+            uiEl.appendChild(editInput);
+            editInput.focus();
+            editInput.select();
+
+            const saveValue = () => {
+              let val = parseInt(editInput.value);
+              if (isNaN(val)) {
+                val = currentVal;
+              }
+              // Clamp to range limits
+              const minVal = parseInt(el.min);
+              const maxVal = parseInt(el.max);
+              if (val < minVal) val = minVal;
+              if (val > maxVal) val = maxVal;
+
+              const [cat, prop] = cfg.target;
+              state[cat][prop] = val;
+              el.value = val;
+              uiEl.innerText = val + (cfg.suffix || '');
+              triggerPathRecalculation();
+            };
+
+            editInput.addEventListener('keydown', (evt) => {
+              if (evt.key === 'Enter') {
+                saveValue();
+              } else if (evt.key === 'Escape') {
+                uiEl.innerText = currentVal + (cfg.suffix || '');
+              }
+            });
+
+            editInput.addEventListener('blur', () => {
+              saveValue();
+            });
+          });
+        }
       });
 
       const channelTypeEl = document.getElementById('input_channel_type');
