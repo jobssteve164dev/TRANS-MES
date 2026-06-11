@@ -1,0 +1,14 @@
+{
+  "name": "trans-mes",
+  "version": "1.0.0",
+  "description": "物料搬运通道仿真与尺寸评估工具",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
