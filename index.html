@@ -786,7 +786,29 @@
           <div class="form-group">
             <div class="input-row">
               <div class="label-row">
-                <span>直道 1 长度</span>
+                <span>通道拓扑类型</span>
+              </div>
+              <select id="input_channel_type" style="margin-top: 4px;">
+                <option value="L">L型拐角通道</option>
+                <option value="T">T型丁字通道</option>
+                <option value="Cross">十字型十字通道</option>
+              </select>
+            </div>
+
+            <div class="input-row" id="row_target_dir" style="display: none;">
+              <div class="label-row">
+                <span>搬运目标方向</span>
+              </div>
+              <select id="input_target_dir" style="margin-top: 4px;">
+                <option value="top">左转 (向上出口)</option>
+                <option value="right">直行 (向右出口)</option>
+                <option value="bottom" id="opt_target_bottom">右转 (向下出口)</option>
+              </select>
+            </div>
+
+            <div class="input-row">
+              <div class="label-row">
+                <span id="label_l1">直道 1 长度</span>
                 <span class="font-tech val-display" id="val_l1">500</span>
               </div>
               <input type="range" id="input_l1" min="200" max="500" step="10" value="500">
@@ -794,7 +816,7 @@
             
             <div class="input-row">
               <div class="label-row">
-                <span>直道 1 宽度</span>
+                <span id="label_w1">直道 1 宽度</span>
                 <span class="font-tech val-display" id="val_w1">150</span>
               </div>
               <input type="range" id="input_w1" min="80" max="500" step="5" value="150">
@@ -802,7 +824,7 @@
 
             <div class="input-row">
               <div class="label-row">
-                <span>直道 2 长度</span>
+                <span id="label_l2">直道 2 长度</span>
                 <span class="font-tech val-display" id="val_l2">500</span>
               </div>
               <input type="range" id="input_l2" min="200" max="500" step="10" value="500">
@@ -810,13 +832,13 @@
 
             <div class="input-row">
               <div class="label-row">
-                <span>直道 2 宽度</span>
+                <span id="label_w2">直道 2 宽度</span>
                 <span class="font-tech val-display" id="val_w2">150</span>
               </div>
               <input type="range" id="input_w2" min="80" max="500" step="5" value="150">
             </div>
 
-            <div class="input-row">
+            <div class="input-row" id="row_angle">
               <div class="label-row">
                 <span>拐角偏角</span>
                 <span class="font-tech val-display" id="val_angle">90°</span>
@@ -1202,6 +1224,8 @@
 
     let state = {
       channel: {
+        type: 'L',
+        targetDir: 'top',
         l1: 500,
         w1: 150,
         l2: 500,
@@ -1257,84 +1281,184 @@
 
     // --- 3. 几何计算 ---
     function getChannelGeometry() {
-      const { l1, w1, l2, w2, angle } = state.channel;
-      const rad = (angle * Math.PI) / 180;
+      const { type, l1, w1, l2, w2, angle } = state.channel;
       
-      const ux = Math.cos(rad);
-      const uy = Math.sin(rad);
-      const nx = -Math.sin(rad);
-      const ny = Math.cos(rad);
+      if (type === 'L') {
+        const rad = (angle * Math.PI) / 180;
+        const ux = Math.cos(rad);
+        const uy = Math.sin(rad);
+        const nx = -Math.sin(rad);
+        const ny = Math.cos(rad);
 
-      let Pac = { x: 0, y: w1 / 2 };
-      let Pbd = { x: 0, y: -w1 / 2 };
+        let Pac = { x: 0, y: w1 / 2 };
+        let Pbd = { x: 0, y: -w1 / 2 };
 
-      if (Math.abs(Math.sin(rad)) > 0.001) {
-        const t_ac = (w1 / 2 - (w2 / 2) * ny) / uy;
-        Pac.x = (w2 / 2) * nx + t_ac * ux;
-        Pac.y = w1 / 2;
+        if (Math.abs(Math.sin(rad)) > 0.001) {
+          const t_ac = (w1 / 2 - (w2 / 2) * ny) / uy;
+          Pac.x = (w2 / 2) * nx + t_ac * ux;
+          Pac.y = w1 / 2;
 
-        const t_bd = (-w1 / 2 - (-w2 / 2) * ny) / uy;
-        Pbd.x = (-w2 / 2) * nx + t_bd * ux;
-        Pbd.y = -w1 / 2;
+          const t_bd = (-w1 / 2 - (-w2 / 2) * ny) / uy;
+          Pbd.x = (-w2 / 2) * nx + t_bd * ux;
+          Pbd.y = -w1 / 2;
+        }
+
+        const Pexit_center = { x: l2 * ux, y: l2 * uy };
+        const Pexit_left = { x: Pexit_center.x + (w2 / 2) * nx, y: Pexit_center.y + (w2 / 2) * ny };
+        const Pexit_right = { x: Pexit_center.x - (w2 / 2) * nx, y: Pexit_center.y - (w2 / 2) * ny };
+
+        const walls = [
+          { p1: { x: -l1, y: w1 / 2 }, p2: Pac, id: 'w1' },
+          { p1: Pac, p2: Pexit_left, id: 'w2' },
+          { p1: { x: -l1, y: -w1 / 2 }, p2: Pbd, id: 'w3' },
+          { p1: Pbd, p2: Pexit_right, id: 'w4' }
+        ];
+
+        const polygon = [
+          { x: -l1, y: -w1 / 2 },
+          { x: -l1, y: w1 / 2 },
+          Pac,
+          Pexit_left,
+          Pexit_right,
+          Pbd
+        ];
+
+        return { Pac, Pbd, Pexit_center, Pexit_left, Pexit_right, walls, polygon };
+      } else if (type === 'T') {
+        const Pac = { x: -w2 / 2, y: w1 / 2 };
+        const Pbd = { x: w2 / 2, y: w1 / 2 };
+        
+        const Pexit_left = { x: -w2 / 2, y: w1 / 2 + l2 };
+        const Pexit_right = { x: w2 / 2, y: w1 / 2 + l2 };
+
+        const walls = [
+          { p1: { x: -l1, y: -w1 / 2 }, p2: { x: l1, y: -w1 / 2 }, id: 'w_bottom' },
+          { p1: { x: -l1, y: w1 / 2 }, p2: Pac, id: 'w_top_left' },
+          { p1: Pbd, p2: { x: l1, y: w1 / 2 }, id: 'w_top_right' },
+          { p1: Pac, p2: Pexit_left, id: 'w_vert_left' },
+          { p1: Pbd, p2: Pexit_right, id: 'w_vert_right' }
+        ];
+
+        const polygon = [
+          { x: -l1, y: -w1 / 2 },
+          { x: -l1, y: w1 / 2 },
+          Pac,
+          Pexit_left,
+          Pexit_right,
+          Pbd,
+          { x: l1, y: w1 / 2 },
+          { x: l1, y: -w1 / 2 }
+        ];
+
+        return { Pac, Pbd, Pexit_center: { x: 0, y: w1 / 2 + l2 }, Pexit_left, Pexit_right, walls, polygon };
+      } else {
+        const P_top_left = { x: -w2 / 2, y: w1 / 2 };
+        const P_top_right = { x: w2 / 2, y: w1 / 2 };
+        const P_bottom_left = { x: -w2 / 2, y: -w1 / 2 };
+        const P_bottom_right = { x: w2 / 2, y: -w1 / 2 };
+
+        const Pexit_top_left = { x: -w2 / 2, y: w1 / 2 + l2 };
+        const Pexit_top_right = { x: w2 / 2, y: w1 / 2 + l2 };
+        const Pexit_bottom_left = { x: -w2 / 2, y: -w1 / 2 - l2 };
+        const Pexit_bottom_right = { x: w2 / 2, y: -w1 / 2 - l2 };
+
+        const walls = [
+          { p1: { x: -l1, y: w1 / 2 }, p2: P_top_left, id: 'w_tl_h' },
+          { p1: P_top_left, p2: Pexit_top_left, id: 'w_tl_v' },
+          { p1: Pexit_top_right, p2: P_top_right, id: 'w_tr_v' },
+          { p1: P_top_right, p2: { x: l1, y: w1 / 2 }, id: 'w_tr_h' },
+          { p1: { x: l1, y: -w1 / 2 }, p2: P_bottom_right, id: 'w_br_h' },
+          { p1: P_bottom_right, p2: Pexit_bottom_right, id: 'w_br_v' },
+          { p1: Pexit_bottom_left, p2: P_bottom_left, id: 'w_bl_v' },
+          { p1: P_bottom_left, p2: { x: -l1, y: -w1 / 2 }, id: 'w_bl_h' }
+        ];
+
+        const polygon = [
+          { x: -l1, y: -w1 / 2 },
+          P_bottom_left,
+          Pexit_bottom_left,
+          Pexit_bottom_right,
+          P_bottom_right,
+          { x: l1, y: -w1 / 2 },
+          { x: l1, y: w1 / 2 },
+          P_top_right,
+          Pexit_top_right,
+          Pexit_top_left,
+          P_top_left,
+          { x: -l1, y: w1 / 2 }
+        ];
+
+        return { 
+          Pac: P_top_left, 
+          Pbd: P_bottom_right, 
+          Pexit_center: { x: 0, y: w1 / 2 + l2 }, 
+          Pexit_left: Pexit_top_left, 
+          Pexit_right: Pexit_top_right, 
+          walls, 
+          polygon 
+        };
       }
-
-      const Pexit_center = { x: l2 * ux, y: l2 * uy };
-      const Pexit_left = { x: Pexit_center.x + (w2 / 2) * nx, y: Pexit_center.y + (w2 / 2) * ny };
-      const Pexit_right = { x: Pexit_center.x - (w2 / 2) * nx, y: Pexit_center.y - (w2 / 2) * ny };
-
-      const walls = [
-        { p1: { x: -l1, y: w1 / 2 }, p2: Pac, id: 'w1' },
-        { p1: Pac, p2: Pexit_left, id: 'w2' },
-        { p1: { x: -l1, y: -w1 / 2 }, p2: Pbd, id: 'w3' },
-        { p1: Pbd, p2: Pexit_right, id: 'w4' }
-      ];
-
-      const polygon = [
-        { x: -l1, y: -w1 / 2 },
-        { x: -l1, y: w1 / 2 },
-        Pac,
-        Pexit_left,
-        Pexit_right,
-        Pbd
-      ];
-
-      return { Pac, Pbd, Pexit_center, Pexit_left, Pexit_right, walls, polygon };
     }
 
     function getObstacleAbsoluteCoords(obs) {
       const geom = getChannelGeometry();
-      const { l1, w1, l2, w2, angle } = state.channel;
-      const rad = (angle * Math.PI) / 180;
+      const { type, l1, w1, l2, w2, angle } = state.channel;
       
-      const ux = Math.cos(rad);
-      const uy = Math.sin(rad);
-      const nx = -Math.sin(rad);
-      const ny = Math.cos(rad);
-
       let x = 0, y = 0;
 
-      if (obs.segment === 1) {
-        const startX = -l1;
-        if (obs.wall === 'inner') {
-          const side = angle >= 0 ? 1 : -1;
-          x = startX + obs.d_long;
-          y = (side * w1) / 2 - side * obs.d_trans;
+      if (type === 'L') {
+        const rad = (angle * Math.PI) / 180;
+        const ux = Math.cos(rad);
+        const uy = Math.sin(rad);
+        const nx = -Math.sin(rad);
+        const ny = Math.cos(rad);
+
+        if (obs.segment === 1) {
+          const startX = -l1;
+          if (obs.wall === 'inner') {
+            const side = angle >= 0 ? 1 : -1;
+            x = startX + obs.d_long;
+            y = (side * w1) / 2 - side * obs.d_trans;
+          } else {
+            const side = angle >= 0 ? -1 : 1;
+            x = startX + obs.d_long;
+            y = (side * w1) / 2 - side * obs.d_trans;
+          }
         } else {
-          const side = angle >= 0 ? -1 : 1;
-          x = startX + obs.d_long;
-          y = (side * w1) / 2 - side * obs.d_trans;
+          if (obs.wall === 'inner') {
+            const startPt = angle >= 0 ? geom.Pac : geom.Pbd;
+            const side = angle >= 0 ? 1 : -1;
+            x = startPt.x + obs.d_long * ux - side * obs.d_trans * nx;
+            y = startPt.y + obs.d_long * uy - side * obs.d_trans * ny;
+          } else {
+            const startPt = angle >= 0 ? geom.Pbd : geom.Pac;
+            const side = angle >= 0 ? -1 : 1;
+            x = startPt.x + obs.d_long * ux - side * obs.d_trans * nx;
+            y = startPt.y + obs.d_long * uy - side * obs.d_trans * ny;
+          }
         }
       } else {
-        if (obs.wall === 'inner') {
-          const startPt = angle >= 0 ? geom.Pac : geom.Pbd;
-          const side = angle >= 0 ? 1 : -1;
-          x = startPt.x + obs.d_long * ux - side * obs.d_trans * nx;
-          y = startPt.y + obs.d_long * uy - side * obs.d_trans * ny;
-        } else {
-          const startPt = angle >= 0 ? geom.Pbd : geom.Pac;
-          const side = angle >= 0 ? -1 : 1;
-          x = startPt.x + obs.d_long * ux - side * obs.d_trans * nx;
-          y = startPt.y + obs.d_long * uy - side * obs.d_trans * ny;
+        if (obs.segment === 1) {
+          x = -l1 + obs.d_long;
+          if (obs.wall === 'inner') {
+            y = w1 / 2 - obs.d_trans;
+          } else {
+            y = -w1 / 2 + obs.d_trans;
+          }
+        } else if (obs.segment === 2) {
+          if (obs.wall === 'inner') {
+            x = -w2 / 2 + obs.d_trans;
+          } else {
+            x = w2 / 2 - obs.d_trans;
+          }
+          y = w1 / 2 + obs.d_long;
+        } else if (obs.segment === 3) {
+          if (obs.wall === 'inner') {
+            x = -w2 / 2 + obs.d_trans;
+          } else {
+            x = w2 / 2 - obs.d_trans;
+          }
+          y = -w1 / 2 - obs.d_long;
         }
       }
       return { x, y };
@@ -1479,32 +1603,74 @@
     }
 
     // --- 5. 寻路器 (解耦局部变量传参版) ---
-    function getHeuristic(x, y) {
-      const { l2, angle } = state.channel;
-      const rad = (angle * Math.PI) / 180;
+    function getHeuristic(x, y, target) {
+      const { type, targetDir, w1, l2, angle } = state.channel;
       
-      if (x < 0) {
-        return -x + l2;
+      if (type === 'L') {
+        const rad = (angle * Math.PI) / 180;
+        if (x < 0) {
+          return -x + l2;
+        } else {
+          const ux = Math.cos(rad);
+          const uy = Math.sin(rad);
+          const progress = x * ux + y * uy;
+          return Math.max(0, l2 - progress);
+        }
       } else {
-        const ux = Math.cos(rad);
-        const uy = Math.sin(rad);
-        const progress = x * ux + y * uy;
-        return Math.max(0, l2 - progress);
+        if (targetDir === 'right') {
+          return Math.abs(x - target.x) + Math.abs(y - target.y);
+        } else if (targetDir === 'top') {
+          if (x < 0) {
+            return -x + (w1 / 2 + l2 - y);
+          } else {
+            return Math.abs(x) + Math.abs(w1 / 2 + l2 - y);
+          }
+        } else {
+          if (x < 0) {
+            return -x + (y - (-w1 / 2 - l2));
+          } else {
+            return Math.abs(x) + Math.abs(y - (-w1 / 2 - l2));
+          }
+        }
       }
     }
 
     function planPath(customObj = null) {
       const targetObj = customObj || state.obj;
-      const { l1, l2, angle } = state.channel;
+      const { type, targetDir, l1, l2, w1, w2, angle } = state.channel;
       const rad = (angle * Math.PI) / 180;
 
       const start = getStartConfig(targetObj);
       
-      const target = {
-        x: l2 * Math.cos(rad) - (targetObj.l / 2) * Math.cos(rad),
-        y: l2 * Math.sin(rad) - (targetObj.l / 2) * Math.sin(rad),
-        theta: rad
-      };
+      let target = { x: 0, y: 0, theta: 0 };
+      
+      if (type === 'L') {
+        target = {
+          x: l2 * Math.cos(rad) - (targetObj.l / 2) * Math.cos(rad),
+          y: l2 * Math.sin(rad) - (targetObj.l / 2) * Math.sin(rad),
+          theta: rad
+        };
+      } else {
+        if (targetDir === 'right') {
+          target = {
+            x: l1 - targetObj.l / 2 - 10,
+            y: 0,
+            theta: 0
+          };
+        } else if (targetDir === 'top') {
+          target = {
+            x: 0,
+            y: w1 / 2 + l2 - targetObj.l / 2 - 10,
+            theta: Math.PI / 2
+          };
+        } else if (targetDir === 'bottom') {
+          target = {
+            x: 0,
+            y: -w1 / 2 - l2 + targetObj.l / 2 + 10,
+            theta: -Math.PI / 2
+          };
+        }
+      }
 
       const startCheck = checkCollisionAndGap(start.x, start.y, start.theta, targetObj);
       if (startCheck.isCollision) {
@@ -1528,12 +1694,12 @@
 
       const startKey = stateKey(start.x, start.y, start.theta);
       gScore.set(startKey, 0);
-      fScore.set(startKey, getHeuristic(start.x, start.y));
+      fScore.set(startKey, getHeuristic(start.x, start.y, target));
       
       openSet.push({ x: start.x, y: start.y, theta: start.theta, f: fScore.get(startKey) });
 
       let maxIterations = 4000;
-      let closestNodeToTarget = { x: start.x, y: start.y, theta: start.theta, dist: getHeuristic(start.x, start.y) };
+      let closestNodeToTarget = { x: start.x, y: start.y, theta: start.theta, dist: getHeuristic(start.x, start.y, target) };
 
       while (openSet.size > 0 && maxIterations-- > 0) {
         const current = openSet.pop();
@@ -1542,7 +1708,7 @@
         if (closedSet.has(curKey)) continue;
         closedSet.add(curKey);
 
-        const curDist = getHeuristic(current.x, current.y);
+        const curDist = getHeuristic(current.x, current.y, target);
         if (curDist < closestNodeToTarget.dist) {
           closestNodeToTarget = { x: current.x, y: current.y, theta: current.theta, dist: curDist };
         }
@@ -1601,7 +1767,7 @@
           if (!gScore.has(nextKey) || tentativeGScore < gScore.get(nextKey)) {
             cameFrom.set(nextKey, current);
             gScore.set(nextKey, tentativeGScore);
-            fScore.set(nextKey, tentativeGScore + getHeuristic(nextX, nextY));
+            fScore.set(nextKey, tentativeGScore + getHeuristic(nextX, nextY, target));
             openSet.push({ x: nextX, y: nextY, theta: nextTheta, f: fScore.get(nextKey) });
           }
         }
@@ -1818,40 +1984,65 @@
     function updateObstacleRelativeCoords(idx, worldPos) {
       const obs = state.obstacles[idx];
       const geom = getChannelGeometry();
-      const { l1, w1, l2, w2, angle } = state.channel;
-      const rad = (angle * Math.PI) / 180;
+      const { type, l1, w1, l2, w2, angle } = state.channel;
       
-      const ux = Math.cos(rad);
-      const uy = Math.sin(rad);
-      const nx = -Math.sin(rad);
-      const ny = Math.cos(rad);
+      if (type === 'L') {
+        const rad = (angle * Math.PI) / 180;
+        const ux = Math.cos(rad);
+        const uy = Math.sin(rad);
+        const nx = -Math.sin(rad);
+        const ny = Math.cos(rad);
 
-      if (obs.segment === 1) {
-        const startX = -l1;
-        const side = angle >= 0 ? 1 : -1;
-        obs.d_long = Math.round(Math.max(0, Math.min(l1, worldPos.x - startX)));
-        if (obs.wall === 'inner') {
-          obs.d_trans = Math.round(Math.max(0, Math.min(w1, ((side * w1) / 2 - worldPos.y) / side)));
+        if (obs.segment === 1) {
+          const startX = -l1;
+          const side = angle >= 0 ? 1 : -1;
+          obs.d_long = Math.round(Math.max(0, Math.min(l1, worldPos.x - startX)));
+          if (obs.wall === 'inner') {
+            obs.d_trans = Math.round(Math.max(0, Math.min(w1, ((side * w1) / 2 - worldPos.y) / side)));
+          } else {
+            obs.d_trans = Math.round(Math.max(0, Math.min(w1, (worldPos.y - (side * w1) / 2) / side)));
+          }
         } else {
-          obs.d_trans = Math.round(Math.max(0, Math.min(w1, (worldPos.y - (side * w1) / 2) / side)));
+          const side = angle >= 0 ? 1 : -1;
+          const startPt = obs.wall === 'inner' 
+            ? (angle >= 0 ? geom.Pac : geom.Pbd)
+            : (angle >= 0 ? geom.Pbd : geom.Pac);
+
+          const dx = worldPos.x - startPt.x;
+          const dy = worldPos.y - startPt.y;
+
+          const projLong = dx * ux + dy * uy;
+          obs.d_long = Math.round(Math.max(0, Math.min(l2, projLong)));
+
+          const projTrans = dx * nx + dy * ny;
+          if (obs.wall === 'inner') {
+            obs.d_trans = Math.round(Math.max(0, Math.min(w2, -side * projTrans)));
+          } else {
+            obs.d_trans = Math.round(Math.max(0, Math.min(w2, side * projTrans)));
+          }
         }
       } else {
-        const side = angle >= 0 ? 1 : -1;
-        const startPt = obs.wall === 'inner' 
-          ? (angle >= 0 ? geom.Pac : geom.Pbd)
-          : (angle >= 0 ? geom.Pbd : geom.Pac);
-
-        const dx = worldPos.x - startPt.x;
-        const dy = worldPos.y - startPt.y;
-
-        const projLong = dx * ux + dy * uy;
-        obs.d_long = Math.round(Math.max(0, Math.min(l2, projLong)));
-
-        const projTrans = dx * nx + dy * ny;
-        if (obs.wall === 'inner') {
-          obs.d_trans = Math.round(Math.max(0, Math.min(w2, -side * projTrans)));
-        } else {
-          obs.d_trans = Math.round(Math.max(0, Math.min(w2, side * projTrans)));
+        if (obs.segment === 1) {
+          obs.d_long = Math.round(Math.max(0, Math.min(2 * l1, worldPos.x - (-l1))));
+          if (obs.wall === 'inner') {
+            obs.d_trans = Math.round(Math.max(0, Math.min(w1, w1 / 2 - worldPos.y)));
+          } else {
+            obs.d_trans = Math.round(Math.max(0, Math.min(w1, worldPos.y - (-w1 / 2))));
+          }
+        } else if (obs.segment === 2) {
+          obs.d_long = Math.round(Math.max(0, Math.min(l2, worldPos.y - w1 / 2)));
+          if (obs.wall === 'inner') {
+            obs.d_trans = Math.round(Math.max(0, Math.min(w2, worldPos.x - (-w2 / 2))));
+          } else {
+            obs.d_trans = Math.round(Math.max(0, Math.min(w2, w2 / 2 - worldPos.x)));
+          }
+        } else if (obs.segment === 3) {
+          obs.d_long = Math.round(Math.max(0, Math.min(l2, -w1 / 2 - worldPos.y)));
+          if (obs.wall === 'inner') {
+            obs.d_trans = Math.round(Math.max(0, Math.min(w2, worldPos.x - (-w2 / 2))));
+          } else {
+            obs.d_trans = Math.round(Math.max(0, Math.min(w2, w2 / 2 - worldPos.x)));
+          }
         }
       }
       updateObstaclesUI();
@@ -1878,19 +2069,12 @@
 
       // 2. 绘制通道墙壁（带发光特效）
       ctx2D.beginPath();
-      let sp = worldToScreen(geom.walls[0].p1.x, geom.walls[0].p1.y);
-      ctx2D.moveTo(sp.x, sp.y);
-      let ep1 = worldToScreen(geom.walls[0].p2.x, geom.walls[0].p2.y);
-      ctx2D.lineTo(ep1.x, ep1.y);
-      let ep2 = worldToScreen(geom.walls[1].p2.x, geom.walls[1].p2.y);
-      ctx2D.lineTo(ep2.x, ep2.y);
-      
-      let sp2 = worldToScreen(geom.walls[2].p1.x, geom.walls[2].p1.y);
-      ctx2D.moveTo(sp2.x, sp2.y);
-      let ep3 = worldToScreen(geom.walls[2].p2.x, geom.walls[2].p2.y);
-      ctx2D.lineTo(ep3.x, ep3.y);
-      let ep4 = worldToScreen(geom.walls[3].p2.x, geom.walls[3].p2.y);
-      ctx2D.lineTo(ep4.x, ep4.y);
+      geom.walls.forEach(wall => {
+        const p1 = worldToScreen(wall.p1.x, wall.p1.y);
+        const p2 = worldToScreen(wall.p2.x, wall.p2.y);
+        ctx2D.moveTo(p1.x, p1.y);
+        ctx2D.lineTo(p2.x, p2.y);
+      });
 
       ctx2D.strokeStyle = '#06b6d4';
       ctx2D.lineWidth = 4;
@@ -2545,14 +2729,98 @@
       link.click();
     }
 
-    // --- 10. UI 选项卡 ---
+    function updateChannelTypeUI() {
+      const type = state.channel.type;
+      
+      const rowAngle = document.getElementById('row_angle');
+      const rowTargetDir = document.getElementById('row_target_dir');
+      const optBottom = document.getElementById('opt_target_bottom');
+      
+      const lblL1 = document.getElementById('label_l1');
+      const lblW1 = document.getElementById('label_w1');
+      const lblL2 = document.getElementById('label_l2');
+      const lblW2 = document.getElementById('label_w2');
+
+      const modalSegOpt1 = document.querySelector('#obs_segment option[value="1"]');
+      const modalSegOpt2 = document.querySelector('#obs_segment option[value="2"]');
+      let modalSegOpt3 = document.querySelector('#obs_segment option[value="3"]');
+
+      if (type === 'L') {
+        if (rowAngle) rowAngle.style.display = 'block';
+        if (rowTargetDir) rowTargetDir.style.display = 'none';
+        state.channel.targetDir = 'top';
+
+        if (lblL1) lblL1.innerText = '直道 1 长度';
+        if (lblW1) lblW1.innerText = '直道 1 宽度';
+        if (lblL2) lblL2.innerText = '直道 2 长度';
+        if (lblW2) lblW2.innerText = '直道 2 宽度';
+
+        if (modalSegOpt1) modalSegOpt1.innerText = '第一段直道 (水平段)';
+        if (modalSegOpt2) modalSegOpt2.innerText = '第二段直道 (偏转段)';
+        if (modalSegOpt3) {
+          modalSegOpt3.remove();
+        }
+      } else if (type === 'T') {
+        if (rowAngle) rowAngle.style.display = 'none';
+        if (rowTargetDir) rowTargetDir.style.display = 'block';
+        if (optBottom) {
+          optBottom.disabled = true;
+          optBottom.style.display = 'none';
+        }
+        if (state.channel.targetDir === 'bottom') {
+          state.channel.targetDir = 'top';
+        }
+
+        if (lblL1) lblL1.innerText = '水平直道长度';
+        if (lblW1) lblW1.innerText = '水平直道宽度';
+        if (lblL2) lblL2.innerText = '垂直直道长度';
+        if (lblW2) lblW2.innerText = '垂直直道宽度';
+
+        if (modalSegOpt1) modalSegOpt1.innerText = '水平直道 (Segment 1)';
+        if (modalSegOpt2) modalSegOpt2.innerText = '上方直道 (Segment 2)';
+        if (modalSegOpt3) {
+          modalSegOpt3.remove();
+        }
+      } else if (type === 'Cross') {
+        if (rowAngle) rowAngle.style.display = 'none';
+        if (rowTargetDir) rowTargetDir.style.display = 'block';
+        if (optBottom) {
+          optBottom.disabled = false;
+          optBottom.style.display = 'block';
+        }
+
+        if (lblL1) lblL1.innerText = '水平直道长度';
+        if (lblW1) lblW1.innerText = '水平直道宽度';
+        if (lblL2) lblL2.innerText = '垂直直道长度';
+        if (lblW2) lblW2.innerText = '垂直直道宽度';
+
+        if (modalSegOpt1) modalSegOpt1.innerText = '水平直道 (Segment 1)';
+        if (modalSegOpt2) modalSegOpt2.innerText = '上方直道 (Segment 2)';
+        
+        if (!modalSegOpt3) {
+          const select = document.getElementById('obs_segment');
+          if (select) {
+            const opt = document.createElement('option');
+            opt.value = '3';
+            opt.innerText = '下方直道 (Segment 3)';
+            select.appendChild(opt);
+          }
+        }
+      }
+      
+      const targetDirInput = document.getElementById('input_target_dir');
+      if (targetDirInput) targetDirInput.value = state.channel.targetDir;
+
+      // Clean up invalid obstacles
+      const maxSegment = type === 'Cross' ? 3 : 2;
+      state.obstacles = state.obstacles.filter(obs => obs.segment <= maxSegment);
+    }
+
     function switchMainTab(tabName) {
       state.currentMainTab = tabName;
-      
       if (tabName === 'simulation') {
         document.getElementById('tab_content_simulation').classList.remove('hidden');
         document.getElementById('tab_content_assess').classList.add('hidden');
-        
         setTimeout(() => {
           resize2DCanvas();
           if (!scene3D) {
@@ -2570,10 +2838,12 @@
 
       ['simulation', 'assess'].forEach(t => {
         const btn = document.getElementById(`tab_${t}`);
-        if (t === tabName) {
-          btn.classList.add('active');
-        } else {
-          btn.classList.remove('active');
+        if (btn) {
+          if (t === tabName) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
         }
       });
     }
@@ -2585,18 +2855,21 @@
         const panel = document.getElementById(`panel_${t}`);
         const ctab = document.getElementById(`ctab_${t}`);
         
-        if (t === tabName) {
-          panel.classList.remove('hidden');
-          ctab.classList.add('active');
-        } else {
-          panel.classList.add('hidden');
-          ctab.classList.remove('active');
+        if (panel && ctab) {
+          if (t === tabName) {
+            panel.classList.remove('hidden');
+            ctab.classList.add('active');
+          } else {
+            panel.classList.add('hidden');
+            ctab.classList.remove('active');
+          }
         }
       });
     }
 
     function setStatus(msg, colorClass) {
       const badge = document.getElementById('statusBadge');
+      if (!badge) return;
       let colorDot = '#10b981';
       if (colorClass === 'red') colorDot = '#ef4444';
       if (colorClass === 'amber') colorDot = '#f59e0b';
@@ -2607,6 +2880,53 @@
         <span class="status-dot pulse" style="background-color: ${colorDot};"></span>
         <span style="color: #cbd5e1; font-weight: 500;">${msg}</span>
       `;
+    }
+
+    function updateModalWallLabels() {
+      const type = state.channel.type;
+      const segmentSelect = document.getElementById('obs_segment');
+      if (!segmentSelect) return;
+      const segment = parseInt(segmentSelect.value);
+      const optInner = document.querySelector('#obs_wall option[value="inner"]');
+      const optOuter = document.querySelector('#obs_wall option[value="outer"]');
+      
+      if (!optInner || !optOuter) return;
+
+      if (type === 'L') {
+        optInner.innerText = '折弯内侧墙壁 (小转弯半径)';
+        optOuter.innerText = '折弯外侧墙壁 (大转弯半径)';
+      } else {
+        if (segment === 1) {
+          optInner.innerText = '上侧墙壁';
+          optOuter.innerText = '下侧墙壁';
+        } else {
+          optInner.innerText = '左侧墙壁';
+          optOuter.innerText = '右侧墙壁';
+        }
+      }
+    }
+
+    function getObstacleMetaString(obs) {
+      const type = state.channel.type;
+      let segName = `段 ${obs.segment}`;
+      let wallName = obs.wall === 'inner' ? '内侧' : '外侧';
+      
+      if (type === 'L') {
+        segName = obs.segment === 1 ? '直道 1' : '直道 2';
+        wallName = obs.wall === 'inner' ? '内侧墙' : '外侧墙';
+      } else {
+        if (obs.segment === 1) {
+          segName = '水平段';
+          wallName = obs.wall === 'inner' ? '上侧墙' : '下侧墙';
+        } else if (obs.segment === 2) {
+          segName = '上方段';
+          wallName = obs.wall === 'inner' ? '左侧墙' : '右侧墙';
+        } else if (obs.segment === 3) {
+          segName = '下方段';
+          wallName = obs.wall === 'inner' ? '左侧墙' : '右侧墙';
+        }
+      }
+      return `${segName} | ${wallName} | 纵向: ${obs.d_long}cm`;
     }
 
     function syncSlidersUI() {
@@ -2621,6 +2941,22 @@
       document.getElementById('val_objW').innerText = state.obj.w;
       document.getElementById('val_objH').innerText = state.obj.h;
       document.getElementById('val_objZ').innerText = state.obj.z;
+
+      document.getElementById('input_l1').value = state.channel.l1;
+      document.getElementById('input_w1').value = state.channel.w1;
+      document.getElementById('input_l2').value = state.channel.l2;
+      document.getElementById('input_w2').value = state.channel.w2;
+      document.getElementById('input_angle').value = state.channel.angle;
+      document.getElementById('input_hchannel').value = state.channel.h;
+
+      document.getElementById('input_objL').value = state.obj.l;
+      document.getElementById('input_objW').value = state.obj.w;
+      document.getElementById('input_objH').value = state.obj.h;
+      document.getElementById('input_objZ').value = state.obj.z;
+
+      document.getElementById('input_channel_type').value = state.channel.type;
+      document.getElementById('input_target_dir').value = state.channel.targetDir;
+      updateChannelTypeUI();
     }
 
     function updateObstaclesUI() {
@@ -2634,12 +2970,11 @@
           <div class="obs-info">
             <span class="obs-name">障碍 ${index + 1} (圆柱)</span>
             <span class="obs-meta">
-              段 ${obs.segment} | ${obs.wall === 'inner' ? '内侧' : '外侧'}墙 | 纵向: ${obs.d_long}cm
+              ${getObstacleMetaString(obs)}
             </span>
           </div>
           <div class="obs-actions">
-            <span class="obs-badge">R:${obs.radius}</span>
-            <button onclick="deleteObstacle(${index})" class="delete-btn">
+            <button onclick="deleteObstacle(${index})" class="btn-delete" style="background: none; border: none; color: #f43f5e; cursor: pointer; padding: 4px;">
               <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
             </button>
           </div>
@@ -2657,6 +2992,7 @@
 
     function showAddObstacleModal() {
       document.getElementById('obstacleModal').classList.remove('hidden');
+      updateModalWallLabels();
     }
     
     function hideAddObstacleModal() {
@@ -2715,6 +3051,28 @@
           triggerPathRecalculation();
         });
       });
+
+      const channelTypeEl = document.getElementById('input_channel_type');
+      if (channelTypeEl) {
+        channelTypeEl.addEventListener('change', (e) => {
+          state.channel.type = e.target.value;
+          updateChannelTypeUI();
+          triggerPathRecalculation();
+        });
+      }
+
+      const targetDirEl = document.getElementById('input_target_dir');
+      if (targetDirEl) {
+        targetDirEl.addEventListener('change', (e) => {
+          state.channel.targetDir = e.target.value;
+          triggerPathRecalculation();
+        });
+      }
+
+      const segmentEl = document.getElementById('obs_segment');
+      if (segmentEl) {
+        segmentEl.addEventListener('change', updateModalWallLabels);
+      }
     }
 
     // --- 11. 启动流程 (同步初始化，强力纠偏 2D/3D 渲染时机) ---
