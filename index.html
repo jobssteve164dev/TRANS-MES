@@ -8,7 +8,7 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;700;950&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;700;955&display=swap" rel="stylesheet">
   
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -58,7 +58,7 @@
       font-family: 'Orbitron', monospace;
     }
 
-    /* --- 2. 现代科技布局框架 --- */
+    /* --- 2. 布局框架 --- */
     .app-header {
       height: 64px;
       background: rgba(6, 9, 17, 0.95);
@@ -122,7 +122,7 @@
       flex-shrink: 0;
     }
 
-    /* 侧边栏 Tabs */
+    /* 侧边栏页签 */
     .sidebar-tabs {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -178,7 +178,7 @@
       align-items: center;
     }
 
-    /* 主要内容渲染视口 */
+    /* 主要内容视口 */
     .viewport-area {
       flex: 1;
       background: #020306;
@@ -189,7 +189,7 @@
       position: relative;
     }
 
-    /* 2D & 3D 分屏联动 */
+    /* 并排分屏 */
     .split-layout {
       flex: 1;
       display: flex;
@@ -289,7 +289,6 @@
       color: var(--brand-purple);
     }
 
-    /* 滑块样式 */
     input[type="range"] {
       -webkit-appearance: none;
       width: 100%;
@@ -321,7 +320,6 @@
       box-shadow: 0 0 10px rgba(168, 85, 247, 0.8);
     }
 
-    /* 下拉框 & 按钮 */
     select, input[type="number"] {
       width: 100%;
       background: #090d16;
@@ -372,6 +370,12 @@
       box-shadow: 0 0 18px rgba(6, 182, 212, 0.4);
     }
 
+    .btn.primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
     .btn-icon-only {
       width: 32px;
       height: 32px;
@@ -379,7 +383,7 @@
       padding: 0;
     }
 
-    /* 障碍列表 */
+    /* 障碍列表项 */
     .obs-item {
       background: rgba(0, 0, 0, 0.2);
       border: 1px solid var(--border-color);
@@ -707,6 +711,15 @@
 
     .hidden {
       display: none !important;
+    }
+
+    .animate-spin {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
   </style>
 </head>
@@ -1182,7 +1195,7 @@
 
     // --- 2. 全局配置与状态 ---
     const CONFIG = {
-      gridSize: 12,       // 优化网格步长，平衡寻路精度和速度
+      gridSize: 12,       // 寻路网格步长 (cm)
       angleStep: 15,      // 寻路角度步长
       safetyMargin: 5     // 最小安全裕度
     };
@@ -1221,6 +1234,17 @@
       },
       draggedObstacleIndex: -1
     };
+
+    // 独立安全的 Lucide 图标创建函数，防止其加载延迟阻塞主线程
+    function safeCreateIcons() {
+      if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        try {
+          lucide.createIcons();
+        } catch(e) {
+          console.warn('Lucide icons creation failed:', e);
+        }
+      }
+    }
 
     function addDefaultObstacles() {
       state.obstacles = [
@@ -1316,30 +1340,11 @@
       return { x, y };
     }
 
-    // --- 4. 碰撞检测 ---
-    function isPointInPolygon(p, poly) {
-      let px = p.x, py = p.y;
-      let inside = false;
-      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        let ix = poly[i].x, iy = poly[i].y;
-        let jx = poly[j].x, jy = poly[j].y;
-        if (((iy > py) !== (jy > py)) && (px < ((jx - ix) * (py - iy)) / (jy - iy) + ix)) {
-          inside = !inside;
-        }
-      }
-      return inside;
-    }
-
-    function isLineSegmentsIntersect(p1, q1, p2, q2) {
-      function ccw(A, B, C) {
-        return (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x);
-      }
-      return ccw(p1, p2, q2) !== ccw(q1, p2, q2) && ccw(p1, q1, p2) !== ccw(p1, q1, q2);
-    }
-
-    function getObjectVertices(x, y, theta) {
-      const halfL = state.obj.l / 2;
-      const halfW = state.obj.w / 2;
+    // --- 4. 碰撞检测 (重构为解耦临时变量版，彻底规避异步竞态死锁) ---
+    function getObjectVertices(x, y, theta, objSize) {
+      const targetObj = objSize || state.obj;
+      const halfL = targetObj.l / 2;
+      const halfW = targetObj.w / 2;
       const cos = Math.cos(theta);
       const sin = Math.sin(theta);
 
@@ -1356,11 +1361,14 @@
       }));
     }
 
-    function checkCollisionAndGap(x, y, theta) {
+    function checkCollisionAndGap(x, y, theta, objSize) {
+      const targetObj = objSize || state.obj;
       const geom = getChannelGeometry();
-      const vertices = getObjectVertices(x, y, theta);
+      
+      // 物体顶点获取
+      const vertices = getObjectVertices(x, y, theta, targetObj);
 
-      if (state.obj.z + state.obj.h > state.channel.h) {
+      if (targetObj.z + targetObj.h > state.channel.h) {
         return { isCollision: true, minGap: 0, reason: 'height' };
       }
 
@@ -1393,8 +1401,8 @@
       for (let obs of state.obstacles) {
         const obsZMin = 0;
         const obsZMax = obs.height;
-        const objZMin = state.obj.z;
-        const objZMax = state.obj.z + state.obj.h;
+        const objZMin = targetObj.z;
+        const objZMax = targetObj.z + targetObj.h;
 
         if (objZMax <= obsZMin || objZMin >= obsZMax) {
           continue;
@@ -1410,8 +1418,8 @@
         const lx = dx * cos + dy * sin;
         const ly = -dx * sin + dy * cos;
 
-        const halfL = state.obj.l / 2;
-        const halfW = state.obj.w / 2;
+        const halfL = targetObj.l / 2;
+        const halfW = targetObj.w / 2;
         const closestX = Math.max(-halfL, Math.min(halfL, lx));
         const closestY = Math.max(-halfW, Math.min(halfW, ly));
 
@@ -1431,39 +1439,43 @@
       };
     }
 
-    function distToSegment(p, p1, p2) {
-      const dx = p2.x - p1.x;
-      const dy = p2.y - p1.y;
-      const l2 = dx * dx + dy * dy;
-      if (l2 === 0) return Math.hypot(p.x - p1.x, p.y - p1.y);
-      let t = ((p.x - p1.x) * dx + (p.y - p1.y) * dy) / l2;
-      t = Math.max(0, Math.min(1, t));
-      return Math.hypot(p.x - (p1.x + t * dx), p.y - (p1.y + t * dy));
+    // --- 5. 寻路器 (解耦局部变量传参版) ---
+    function getHeuristic(x, y) {
+      const { l2, angle } = state.channel;
+      const rad = (angle * Math.PI) / 180;
+      
+      if (x < 0) {
+        return -x + l2;
+      } else {
+        const ux = Math.cos(rad);
+        const uy = Math.sin(rad);
+        const progress = x * ux + y * uy;
+        return Math.max(0, l2 - progress);
+      }
     }
 
-    // --- 5. 寻路器 (基于 Min-Heap 优化 A*) ---
-    function planPath() {
+    function planPath(customObj = null) {
+      const targetObj = customObj || state.obj;
       const { l1, l2, angle } = state.channel;
       const rad = (angle * Math.PI) / 180;
 
       const start = {
-        x: -l1 + state.obj.l / 2 + 10,
+        x: -l1 + targetObj.l / 2 + 10,
         y: 0,
         theta: 0
       };
       
       const target = {
-        x: l2 * Math.cos(rad) - (state.obj.l / 2) * Math.cos(rad),
-        y: l2 * Math.sin(rad) - (state.obj.l / 2) * Math.sin(rad),
+        x: l2 * Math.cos(rad) - (targetObj.l / 2) * Math.cos(rad),
+        y: l2 * Math.sin(rad) - (targetObj.l / 2) * Math.sin(rad),
         theta: rad
       };
 
-      const startCheck = checkCollisionAndGap(start.x, start.y, start.theta);
+      const startCheck = checkCollisionAndGap(start.x, start.y, start.theta, targetObj);
       if (startCheck.isCollision) {
         return { success: false, path: [], bottleneck: { ...start, minGap: startCheck.minGap } };
       }
 
-      // 使用二叉堆优先队列，提取最小值降为 O(log N)
       const openSet = new MinHeap();
       const closedSet = new Set();
       const cameFrom = new Map();
@@ -1485,15 +1497,13 @@
       
       openSet.push({ x: start.x, y: start.y, theta: start.theta, f: fScore.get(startKey) });
 
-      // 寻路最大迭代次数，限制高负荷扫描时间
-      let maxIterations = 4500;
+      let maxIterations = 4000;
       let closestNodeToTarget = { x: start.x, y: start.y, theta: start.theta, dist: getHeuristic(start.x, start.y) };
 
       while (openSet.size > 0 && maxIterations-- > 0) {
-        const current = openSet.pop(); // O(log N)
+        const current = openSet.pop();
         const curKey = stateKey(current.x, current.y, current.theta);
         
-        // 惰性删除 (Lazy Deletion)：若该状态已在闭集中，说明已被更短路径处理，丢弃
         if (closedSet.has(curKey)) continue;
         closedSet.add(curKey);
 
@@ -1540,7 +1550,7 @@
           let nextX = current.x + move.ds * Math.cos(current.theta);
           let nextY = current.y + move.ds * Math.sin(current.theta);
 
-          const check = checkCollisionAndGap(nextX, nextY, nextTheta);
+          const check = checkCollisionAndGap(nextX, nextY, nextTheta, targetObj);
           if (check.isCollision) continue;
 
           const nextKey = stateKey(nextX, nextY, nextTheta);
@@ -1557,14 +1567,12 @@
             cameFrom.set(nextKey, current);
             gScore.set(nextKey, tentativeGScore);
             fScore.set(nextKey, tentativeGScore + getHeuristic(nextX, nextY));
-            
-            // 直接推入堆中，利用惰性删除处理冗余
             openSet.push({ x: nextX, y: nextY, theta: nextTheta, f: fScore.get(nextKey) });
           }
         }
       }
 
-      const crashCheck = checkCollisionAndGap(closestNodeToTarget.x, closestNodeToTarget.y, closestNodeToTarget.theta);
+      const crashCheck = checkCollisionAndGap(closestNodeToTarget.x, closestNodeToTarget.y, closestNodeToTarget.theta, targetObj);
       return {
         success: false,
         path: [],
@@ -1945,7 +1953,7 @@
     }
 
     function drawObjectOutline(x, y, theta, fillColor, strokeColor, isDashed = false) {
-      const vertices = getObjectVertices(x, y, theta);
+      const vertices = getObjectVertices(x, y, theta, null);
       ctx2D.beginPath();
       const s0 = worldToScreen(vertices[0].x, vertices[0].y);
       ctx2D.moveTo(s0.x, s0.y);
@@ -2055,6 +2063,7 @@
       const geom = getChannelGeometry();
       const chHeight = state.channel.h;
 
+      // 地面
       const floorShape = new THREE.Shape();
       geom.polygon.forEach((p, idx) => {
         if (idx === 0) floorShape.moveTo(p.x, p.y);
@@ -2068,6 +2077,7 @@
       floorMesh.rotation.x = -Math.PI / 2;
       meshGroup.add(floorMesh);
 
+      // 墙面
       geom.walls.forEach(wall => {
         const wallGeo = new THREE.BoxGeometry(Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y), chHeight, 4);
         const wallMat = new THREE.MeshPhongMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.35 });
@@ -2082,6 +2092,7 @@
         meshGroup.add(wallMesh);
       });
 
+      // 障碍物
       state.obstacles.forEach(obs => {
         const absPos = getObstacleAbsoluteCoords(obs);
         const cylGeo = new THREE.CylinderGeometry(obs.radius, obs.radius, obs.height, 32);
@@ -2091,12 +2102,14 @@
         meshGroup.add(cylMesh);
       });
 
+      // 搬运物体
       const objGeo = new THREE.BoxGeometry(state.obj.l, state.obj.h, state.obj.w);
       const objMat = new THREE.MeshPhongMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.85 });
       objMesh = new THREE.Mesh(objGeo, objMat);
       objMesh.position.set(0, state.obj.z + state.obj.h / 2, 0);
       meshGroup.add(objMesh);
 
+      // 路线带
       if (state.path && state.path.length > 0) {
         const points = state.path.map(pt => new THREE.Vector3(pt.x, state.obj.z, -pt.y));
         const pathGeo = new THREE.BufferGeometry().setFromPoints(points);
@@ -2126,7 +2139,7 @@
       }
     }
 
-    // --- 8. 仿真播放控制 ---
+    // --- 8. 仿真控制 ---
     let simTimer = null;
 
     function togglePlaySimulation() {
@@ -2134,7 +2147,7 @@
         state.isPlaying = false;
         clearInterval(simTimer);
         document.getElementById('playIcon').setAttribute('data-lucide', 'play');
-        lucide.createIcons();
+        safeCreateIcons();
       } else {
         if (!state.path || state.path.length === 0) {
           setStatus('无可达路线，播放取消', 'red');
@@ -2142,7 +2155,7 @@
         }
         state.isPlaying = true;
         document.getElementById('playIcon').setAttribute('data-lucide', 'pause');
-        lucide.createIcons();
+        safeCreateIcons();
 
         simTimer = setInterval(() => {
           state.simulationIndex++;
@@ -2165,31 +2178,30 @@
         <i data-lucide="layers" style="width: 14px; height: 14px;"></i>
         <span>包络线: ${state.showEnvelope ? '开' : '关'}</span>
       `;
-      lucide.createIcons();
+      safeCreateIcons();
       render2D();
     }
 
-    // --- 9. 异步计算与尺寸评估引擎 ---
+    // --- 9. 智能分析尺寸评估 ---
     
-    // 异步二分查找：评估最大可通过长度，每次判断释放一次事件循环，防止卡顿
+    // 异步二分查找：完全局部变量实现，彻底隔绝全局竞态污染
     async function assessMaxLengthAsync(fixedW, fixedH) {
       let low = 10;
       let high = state.channel.l1 + state.channel.l2;
       let bestL = 10;
 
-      const backupL = state.obj.l;
-      const backupW = state.obj.w;
-      const backupH = state.obj.h;
-
-      state.obj.w = fixedW;
-      state.obj.h = fixedH;
-
       for (let i = 0; i < 9; i++) {
         let mid = (low + high) / 2;
-        state.obj.l = mid;
         
-        // 允许寻路引擎让出主线程
-        const checkPath = planPath();
+        // 构造局部临时大小对象
+        const tempObj = {
+          l: mid,
+          w: fixedW,
+          h: fixedH,
+          z: state.obj.z
+        };
+        
+        const checkPath = planPath(tempObj);
         if (checkPath.success) {
           bestL = mid;
           low = mid;
@@ -2197,34 +2209,28 @@
           high = mid;
         }
         
-        // 间隔迭代挂起，确保UI刷新
-        await new Promise(resolve => setTimeout(resolve, 1));
+        await new Promise(resolve => setTimeout(resolve, 2));
       }
 
-      state.obj.l = backupL;
-      state.obj.w = backupW;
-      state.obj.h = backupH;
       return Math.round(bestL);
     }
 
-    // 异步二分查找：评估最大可通过宽度
     async function assessMaxWidthAsync(fixedL, fixedH) {
       let low = 5;
       let high = Math.min(state.channel.w1, state.channel.w2);
       let bestW = 5;
 
-      const backupL = state.obj.l;
-      const backupW = state.obj.w;
-      const backupH = state.obj.h;
-
-      state.obj.l = fixedL;
-      state.obj.h = fixedH;
-
       for (let i = 0; i < 9; i++) {
         let mid = (low + high) / 2;
-        state.obj.w = mid;
         
-        const checkPath = planPath();
+        const tempObj = {
+          l: fixedL,
+          w: mid,
+          h: fixedH,
+          z: state.obj.z
+        };
+        
+        const checkPath = planPath(tempObj);
         if (checkPath.success) {
           bestW = mid;
           low = mid;
@@ -2232,22 +2238,18 @@
           high = mid;
         }
         
-        await new Promise(resolve => setTimeout(resolve, 1));
+        await new Promise(resolve => setTimeout(resolve, 2));
       }
 
-      state.obj.l = backupL;
-      state.obj.w = backupW;
-      state.obj.h = backupH;
       return Math.round(bestW);
     }
 
-    // 协同式多任务异步设计空间扫描，彻底杜绝浏览器死锁卡死
     async function startDesignSpaceScanAsync() {
       const btn = document.getElementById('btn_scan_space');
       btn.disabled = true;
       btn.innerHTML = `<i data-lucide="loader" class="animate-spin" style="width: 14px; height: 14px;"></i><span>扫描中...</span>`;
-      lucide.createIcons();
-      setStatus('初始化设计空间扫描中...', 'indigo');
+      safeCreateIcons();
+      setStatus('开始全量扫描物体尺寸空间...', 'indigo');
 
       const maxL = state.channel.l1 + state.channel.l2;
       const lengthSamples = [];
@@ -2261,13 +2263,15 @@
         const L = minLSample + ((maxLSample - minLSample) / steps) * i;
         lengthSamples.push(Math.round(L));
         
-        // 异步等待二分查找结果，释放主线程
+        // 数据隔离版异步查找
         const maxW = await assessMaxWidthAsync(L, state.obj.h);
         widthBounds.push(maxW);
 
-        // 每次计算完一个长度样品后，强制进行15ms的延时挂起让出CPU，以便浏览器更新渲染
         const progress = Math.round((i / steps) * 100);
         setStatus(`正在扫描尺寸空间: ${progress}%`, 'indigo');
+        btn.innerHTML = `<i data-lucide="loader" class="animate-spin" style="width: 14px; height: 14px;"></i><span>已扫描 ${progress}%</span>`;
+        safeCreateIcons();
+        
         await new Promise(resolve => setTimeout(resolve, 15));
       }
 
@@ -2276,9 +2280,9 @@
       
       btn.disabled = false;
       btn.innerHTML = `<i data-lucide="scan" style="width: 14px; height: 14px;"></i><span>扫描设计空间</span>`;
-      lucide.createIcons();
+      safeCreateIcons();
       
-      setStatus('空间扫描就绪！', 'emerald');
+      setStatus('尺寸扫描已就绪！', 'emerald');
     }
 
     function renderDesignSpaceChart(labels, data) {
@@ -2346,7 +2350,6 @@
       });
     }
 
-    // 异步更新顶部评估指标，防止切页面时死锁
     async function updateAssessmentPanelAsync() {
       setStatus('正在实时评估极限规格中...', 'indigo');
       
@@ -2365,7 +2368,7 @@
       if (res.success) {
         let minGap = Infinity;
         res.path.forEach(n => {
-          const check = checkCollisionAndGap(n.x, n.y, n.theta);
+          const check = checkCollisionAndGap(n.x, n.y, n.theta, null);
           if (check.minGap < minGap) minGap = check.minGap;
         });
         
@@ -2395,7 +2398,7 @@
     function updateAssessmentReport() {
       const list = document.getElementById('assess_details_list');
       const p = planPath();
-      const statusText = p.success ? '✅ 物体可安全搬运通过' : '❌ 路线受阻';
+      const statusText = p.success ? '✅ 物体可安全搬运通过' : '❌ 无法安全通过';
       
       let html = `
         <div class="report-item">
@@ -2430,43 +2433,7 @@
       list.innerHTML = html;
     }
 
-    function exportReport() {
-      const p = planPath();
-      const statusText = p.success ? '【安全可通过】' : '【路线受阻，无法通过】';
-      
-      // 这里的 maxL 和 maxW 使用当前同步状态的数值显示
-      const maxL = document.getElementById('assess_max_L').innerText;
-      const maxW = document.getElementById('assess_max_W').innerText;
-
-      let text = `========================================\n`;
-      text += `     TRANS-MES 通道搬运通过性评估报告\n`;
-      text += `========================================\n\n`;
-      text += `一、当前配置参数：\n`;
-      text += `- 通道宽度：直道1=${state.channel.w1}cm, 直道2=${state.channel.w2}cm\n`;
-      text += `- 拐角偏角：${state.channel.angle} 度\n`;
-      text += `- 通道净高：${state.channel.h}cm\n`;
-      text += `- 物体尺寸：L=${state.obj.l}cm, W=${state.obj.w}cm, H=${state.obj.h}cm\n`;
-      text += `- 离地搬运高度：${state.obj.z}cm\n\n`;
-      text += `二、通过性评估：\n`;
-      text += `- 是否可通过：${statusText}\n`;
-      text += `- 最大可通过长度 (固定宽度 ${state.obj.w}cm)：${maxL} cm\n`;
-      text += `- 最大可通过宽度 (固定长度 ${state.obj.l}cm)：${maxW} cm\n\n`;
-      
-      if (state.obstacles.length > 0) {
-        text += `三、圆柱杂物列表：\n`;
-        state.obstacles.forEach((obs, index) => {
-          text += `- 障碍物 ${index + 1}：段=${obs.segment}, 参考墙面=${obs.wall}, 沿墙偏移=${obs.d_long}cm, 偏入深度=${obs.d_trans}cm, 半径=${obs.radius}cm\n`;
-        });
-      }
-
-      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = 'TRANS-MES_Assessment_Report.txt';
-      link.click();
-    }
-
-    // --- 10. UI 控制与页签 ---
+    // --- 10. UI 选项卡 ---
     function switchMainTab(tabName) {
       state.currentMainTab = tabName;
       
@@ -2486,8 +2453,6 @@
       } else {
         document.getElementById('tab_content_simulation').classList.add('hidden');
         document.getElementById('tab_content_assess').classList.remove('hidden');
-        
-        // 异步更新概览面板，不阻塞UI渲染
         updateAssessmentPanelAsync();
       }
 
@@ -2569,7 +2534,7 @@
         `;
         list.appendChild(item);
       });
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function deleteObstacle(idx) {
@@ -2640,20 +2605,26 @@
       });
     }
 
-    // --- 11. 启动 ---
+    // --- 11. 启动流程 (同步初始化，强力纠偏 2D/3D 渲染时机) ---
     window.addEventListener('load', () => {
-      lucide.createIcons();
+      // 1. 安全初始化 Lucide，防网络延迟报错中断执行
+      safeCreateIcons();
+      
+      // 2. 绑定事件与界面
       bindInputs();
       syncSlidersUI();
-      addDefaultObstacles();
       
+      // 3. 准备 2D 交互 Canvas (此时 ctx2D 准备完毕)
       init2DCanvas();
       
-      setTimeout(() => {
-        init3DScene();
-      }, 100);
+      // 4. 同步准备 3D Three.js 场景 (scene3D 和 meshGroup 准备完毕，且立即重绘相机 Aspect)
+      init3DScene();
+      resize3D();
       
-      triggerPathRecalculation();
+      // 5. 载入障碍物 (此时由于 2D 和 3D 核心已建立，triggerPathRecalculation 会同时激活 render2D 和 sync3DScene 渲染首屏！)
+      addDefaultObstacles();
+      
+      // 6. 进行自适应缩放与精细修整
       zoomToFit();
       render2D();
     });
