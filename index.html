@@ -845,17 +845,17 @@
             <div class="input-row">
               <div class="label-row">
                 <span>物体长度 (L)</span>
-                <span class="font-tech val-display purple" id="val_objL">180</span>
+                <span class="font-tech val-display purple" id="val_objL">140</span>
               </div>
-              <input type="range" id="input_objL" min="20" max="400" step="5" value="180" class="accent-purple">
+              <input type="range" id="input_objL" min="20" max="400" step="5" value="140" class="accent-purple">
             </div>
 
             <div class="input-row">
               <div class="label-row">
                 <span>物体宽度 (W)</span>
-                <span class="font-tech val-display purple" id="val_objW">60</span>
+                <span class="font-tech val-display purple" id="val_objW">50</span>
               </div>
-              <input type="range" id="input_objW" min="10" max="250" step="5" value="60" class="accent-purple">
+              <input type="range" id="input_objW" min="10" max="250" step="5" value="50" class="accent-purple">
             </div>
 
             <div class="input-row">
@@ -1210,8 +1210,8 @@
         h: 220
       },
       obj: {
-        l: 180,
-        w: 60,
+        l: 140,
+        w: 50,
         h: 80,
         z: 10
       },
@@ -1340,6 +1340,15 @@
       return { x, y };
     }
 
+    function getStartConfig(targetObj = null) {
+      const obj = targetObj || state.obj;
+      return {
+        x: -state.channel.l1 + obj.l / 2 + 10,
+        y: 0,
+        theta: 0
+      };
+    }
+
     // --- 4. 碰撞检测 (重构为解耦临时变量版，彻底规避异步竞态死锁) ---
     function getObjectVertices(x, y, theta, objSize) {
       const targetObj = objSize || state.obj;
@@ -1459,11 +1468,7 @@
       const { l1, l2, angle } = state.channel;
       const rad = (angle * Math.PI) / 180;
 
-      const start = {
-        x: -l1 + targetObj.l / 2 + 10,
-        y: 0,
-        theta: 0
-      };
+      const start = getStartConfig(targetObj);
       
       const target = {
         x: l2 * Math.cos(rad) - (targetObj.l / 2) * Math.cos(rad),
@@ -1829,6 +1834,7 @@
       const geom = getChannelGeometry();
       drawGrid();
 
+      // 1. 绘制通道区域填充
       ctx2D.beginPath();
       geom.polygon.forEach((p, idx) => {
         const s = worldToScreen(p.x, p.y);
@@ -1839,25 +1845,7 @@
       ctx2D.fillStyle = 'rgba(12, 20, 35, 0.4)';
       ctx2D.fill();
 
-      if (state.showEnvelope && state.sweptVolume.length > 0) {
-        state.sweptVolume.forEach(node => {
-          drawObjectOutline(node.x, node.y, node.theta, 'rgba(6, 182, 212, 0.025)', 'rgba(6, 182, 212, 0.08)');
-        });
-      }
-
-      if (state.path && state.path.length > 0) {
-        ctx2D.beginPath();
-        const pStart = worldToScreen(state.path[0].x, state.path[0].y);
-        ctx2D.moveTo(pStart.x, pStart.y);
-        for (let i = 1; i < state.path.length; i++) {
-          const pt = worldToScreen(state.path[i].x, state.path[i].y);
-          ctx2D.lineTo(pt.x, pt.y);
-        }
-        ctx2D.strokeStyle = '#a855f7';
-        ctx2D.lineWidth = 3;
-        ctx2D.stroke();
-      }
-
+      // 2. 绘制通道墙壁（带发光特效）
       ctx2D.beginPath();
       let sp = worldToScreen(geom.walls[0].p1.x, geom.walls[0].p1.y);
       ctx2D.moveTo(sp.x, sp.y);
@@ -1872,7 +1860,7 @@
       ctx2D.lineTo(ep3.x, ep3.y);
       let ep4 = worldToScreen(geom.walls[3].p2.x, geom.walls[3].p2.y);
       ctx2D.lineTo(ep4.x, ep4.y);
-      
+
       ctx2D.strokeStyle = '#06b6d4';
       ctx2D.lineWidth = 4;
       ctx2D.lineCap = 'round';
@@ -1882,6 +1870,29 @@
       ctx2D.stroke();
       ctx2D.shadowBlur = 0;
 
+      // 3. 绘制包络线
+      if (state.showEnvelope && state.sweptVolume.length > 0) {
+        state.sweptVolume.forEach(node => {
+          drawObjectOutline(node.x, node.y, node.theta, 'rgba(6, 182, 212, 0.015)', 'rgba(6, 182, 212, 0.05)');
+        });
+      }
+
+      // 4. 绘制最佳路径轨迹线
+      if (state.path && state.path.length > 0) {
+        ctx2D.beginPath();
+        const pStart = worldToScreen(state.path[0].x, state.path[0].y);
+        ctx2D.moveTo(pStart.x, pStart.y);
+        for (let i = 1; i < state.path.length; i++) {
+          const pt = worldToScreen(state.path[i].x, state.path[i].y);
+          ctx2D.lineTo(pt.x, pt.y);
+        }
+        ctx2D.strokeStyle = '#a855f7';
+        ctx2D.lineWidth = 3;
+        ctx2D.lineJoin = 'round';
+        ctx2D.stroke();
+      }
+
+      // 5. 绘制障碍物
       state.obstacles.forEach((obs, index) => {
         const center = getObstacleAbsoluteCoords(obs);
         const screenCenter = worldToScreen(center.x, center.y);
@@ -1908,18 +1919,32 @@
         ctx2D.fillText(`障碍 ${index+1}`, screenCenter.x - 15, screenCenter.y - radius - 5);
       });
 
+      // 6. 始终绘制起点处就位状态的待搬运物体（高对比度，白色虚线）
+      const startCfg = getStartConfig();
+      drawObjectOutline(startCfg.x, startCfg.y, startCfg.theta, 'rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.4)', true);
+      const startScreen = worldToScreen(startCfg.x, startCfg.y);
+      ctx2D.fillStyle = '#94a3b8';
+      ctx2D.font = '10px Inter';
+      ctx2D.fillText('起点就位', startScreen.x - 20, startScreen.y - 5);
+
+      // 7. 绘制卡死瓶颈点
       if (state.bottleneck) {
         const b = state.bottleneck;
-        drawObjectOutline(b.x, b.y, b.theta, 'rgba(239, 68, 68, 0.1)', '#ef4444', true);
+        drawObjectOutline(b.x, b.y, b.theta, 'rgba(239, 68, 68, 0.2)', '#ef4444', false);
         
         const sCenter = worldToScreen(b.x, b.y);
         ctx2D.beginPath();
-        ctx2D.arc(sCenter.x, sCenter.y, 25, 0, 2 * Math.PI);
-        ctx2D.strokeStyle = 'rgba(239, 68, 68, 0.35)';
-        ctx2D.lineWidth = 1.5;
+        ctx2D.arc(sCenter.x, sCenter.y, 20, 0, 2 * Math.PI);
+        ctx2D.strokeStyle = '#ef4444';
+        ctx2D.lineWidth = 2;
         ctx2D.stroke();
+
+        ctx2D.fillStyle = '#ef4444';
+        ctx2D.font = 'bold 11px Inter';
+        ctx2D.fillText('卡阻点', sCenter.x - 16, sCenter.y - 30);
       }
 
+      // 8. 绘制仿真移动中的物体
       if (state.path && state.path.length > 0) {
         const node = state.path[state.simulationIndex];
         if (node) {
@@ -2106,7 +2131,10 @@
       const objGeo = new THREE.BoxGeometry(state.obj.l, state.obj.h, state.obj.w);
       const objMat = new THREE.MeshPhongMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.85 });
       objMesh = new THREE.Mesh(objGeo, objMat);
-      objMesh.position.set(0, state.obj.z + state.obj.h / 2, 0);
+      
+      const startCfg = getStartConfig();
+      objMesh.position.set(startCfg.x, state.obj.z + state.obj.h / 2, -startCfg.y);
+      objMesh.rotation.y = startCfg.theta;
       meshGroup.add(objMesh);
 
       // 路线带
@@ -2124,13 +2152,21 @@
 
       if (controls3D) controls3D.update();
 
-      if (objMesh && state.path && state.path.length > 0) {
-        const node = state.path[state.simulationIndex];
-        if (node) {
-          objMesh.position.x = node.x;
+      if (objMesh) {
+        if (state.path && state.path.length > 0) {
+          const node = state.path[state.simulationIndex];
+          if (node) {
+            objMesh.position.x = node.x;
+            objMesh.position.y = state.obj.z + state.obj.h / 2;
+            objMesh.position.z = -node.y;
+            objMesh.rotation.y = node.theta;
+          }
+        } else {
+          const startCfg = getStartConfig();
+          objMesh.position.x = startCfg.x;
           objMesh.position.y = state.obj.z + state.obj.h / 2;
-          objMesh.position.z = -node.y;
-          objMesh.rotation.y = node.theta;
+          objMesh.position.z = -startCfg.y;
+          objMesh.rotation.y = startCfg.theta;
         }
       }
 
