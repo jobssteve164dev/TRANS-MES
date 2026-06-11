@@ -895,6 +895,25 @@
           <div class="form-group">
             <div class="input-row">
               <div class="label-row">
+                <span>搬运工具类型</span>
+              </div>
+              <select id="input_carrier_type" style="margin-top: 4px;" class="accent-purple">
+                <option value="omni">全向搬运 (万向轮/人抬)</option>
+                <option value="fws">传统前轮转向叉车 (前轮转向)</option>
+                <option value="forklift">后轮转向叉车 (后轮转向/尾部扫掠)</option>
+              </select>
+            </div>
+
+            <div class="input-row" id="row_min_radius" style="display: none;">
+              <div class="label-row">
+                <span>最小转弯半径 (R)</span>
+                <span class="font-tech val-display purple" id="val_minRadius">150</span>
+              </div>
+              <input type="range" id="input_min_radius" min="80" max="500" step="10" value="150" class="accent-purple">
+            </div>
+
+            <div class="input-row">
+              <div class="label-row">
                 <span>物体长度 (L)</span>
                 <span class="font-tech val-display purple" id="val_objL">140</span>
               </div>
@@ -1266,7 +1285,9 @@
         l: 140,
         w: 50,
         h: 80,
-        z: 10
+        z: 10,
+        carrierType: 'omni',
+        minRadius: 150
       },
       obstacles: [],
       path: [],
@@ -1769,23 +1790,60 @@
         }
 
         const dTheta = (CONFIG.angleStep * Math.PI) / 180;
-        const moves = [
-          { ds: dynamicDs, dt: 0 },
-          { ds: -dynamicDs, dt: 0 },
-          { ds: 0, dt: dTheta },
-          { ds: 0, dt: -dTheta },
-          { ds: dynamicDs, dt: dTheta },
-          { ds: dynamicDs, dt: -dTheta },
-          { ds: -dynamicDs, dt: dTheta },
-          { ds: -dynamicDs, dt: -dTheta }
-        ];
+        let moves = [];
+        if (targetObj.carrierType === 'forklift' || targetObj.carrierType === 'fws') {
+          const R = targetObj.minRadius || 150;
+          const L = targetObj.l;
+          const d_off = targetObj.carrierType === 'forklift' ? -L/2 : L/2;
+          const dtheta_val = dynamicDs / R;
+
+          const getTurnMove = (ds_val, dt_val) => {
+            if (dt_val === 0) {
+              return {
+                xoff: ds_val * Math.cos(current.theta),
+                yoff: ds_val * Math.sin(current.theta),
+                dt: 0,
+                ds: ds_val
+              };
+            }
+            const S = Math.sign(dt_val * ds_val);
+            const px = S * R * (Math.sin(current.theta + dt_val) - Math.sin(current.theta));
+            const py = -S * R * (Math.cos(current.theta + dt_val) - Math.cos(current.theta));
+            return {
+              xoff: px + d_off * (Math.cos(current.theta + dt_val) - Math.cos(current.theta)),
+              yoff: py + d_off * (Math.sin(current.theta + dt_val) - Math.sin(current.theta)),
+              dt: dt_val,
+              ds: ds_val
+            };
+          };
+
+          moves = [
+            getTurnMove(dynamicDs, 0),
+            getTurnMove(-dynamicDs, 0),
+            getTurnMove(dynamicDs, dtheta_val),
+            getTurnMove(dynamicDs, -dtheta_val),
+            getTurnMove(-dynamicDs, -dtheta_val),
+            getTurnMove(-dynamicDs, dtheta_val)
+          ];
+        } else {
+          moves = [
+            { xoff: dynamicDs * Math.cos(current.theta), yoff: dynamicDs * Math.sin(current.theta), dt: 0, ds: dynamicDs },
+            { xoff: -dynamicDs * Math.cos(current.theta), yoff: -dynamicDs * Math.sin(current.theta), dt: 0, ds: -dynamicDs },
+            { xoff: 0, yoff: 0, dt: dTheta, ds: 0 },
+            { xoff: 0, yoff: 0, dt: -dTheta, ds: 0 },
+            { xoff: dynamicDs * Math.cos(current.theta), yoff: dynamicDs * Math.sin(current.theta), dt: dTheta, ds: dynamicDs },
+            { xoff: dynamicDs * Math.cos(current.theta), yoff: dynamicDs * Math.sin(current.theta), dt: -dTheta, ds: dynamicDs },
+            { xoff: -dynamicDs * Math.cos(current.theta), yoff: -dynamicDs * Math.sin(current.theta), dt: dTheta, ds: -dynamicDs },
+            { xoff: -dynamicDs * Math.cos(current.theta), yoff: -dynamicDs * Math.sin(current.theta), dt: -dTheta, ds: -dynamicDs }
+          ];
+        }
 
         for (let move of moves) {
           let nextTheta = (current.theta + move.dt) % (2 * Math.PI);
           if (nextTheta < 0) nextTheta += 2 * Math.PI;
           
-          let nextX = current.x + move.ds * Math.cos(current.theta);
-          let nextY = current.y + move.ds * Math.sin(current.theta);
+          let nextX = current.x + move.xoff;
+          let nextY = current.y + move.yoff;
 
           const check = checkCollisionAndGap(nextX, nextY, nextTheta, targetObj);
           if (check.isCollision) continue;
@@ -2485,7 +2543,9 @@
           l: mid,
           w: fixedW,
           h: fixedH,
-          z: state.obj.z
+          z: state.obj.z,
+          carrierType: state.obj.carrierType,
+          minRadius: state.obj.minRadius
         };
         
         const checkPath = planPath(tempObj);
@@ -2514,7 +2574,9 @@
           l: fixedL,
           w: mid,
           h: fixedH,
-          z: state.obj.z
+          z: state.obj.z,
+          carrierType: state.obj.carrierType,
+          minRadius: state.obj.minRadius
         };
         
         const checkPath = planPath(tempObj);
@@ -2942,6 +3004,14 @@
       }
     }
 
+    function updateCarrierTypeUI() {
+      const type = state.obj.carrierType;
+      const rowMinRadius = document.getElementById('row_min_radius');
+      if (rowMinRadius) {
+        rowMinRadius.style.display = (type === 'forklift' || type === 'fws') ? 'block' : 'none';
+      }
+    }
+
     function getObstacleMetaString(obs) {
       const type = state.channel.type;
       let segName = `段 ${obs.segment}`;
@@ -2993,6 +3063,11 @@
       document.getElementById('input_channel_type').value = state.channel.type;
       document.getElementById('input_target_dir').value = state.channel.targetDir;
       updateChannelTypeUI();
+
+      document.getElementById('input_carrier_type').value = state.obj.carrierType;
+      document.getElementById('input_min_radius').value = state.obj.minRadius;
+      document.getElementById('val_minRadius').innerText = state.obj.minRadius;
+      updateCarrierTypeUI();
     }
 
     function updateObstaclesUI() {
@@ -3074,7 +3149,8 @@
         { id: 'input_objL', target: ['obj', 'l'], ui: 'val_objL' },
         { id: 'input_objW', target: ['obj', 'w'], ui: 'val_objW' },
         { id: 'input_objH', target: ['obj', 'h'], ui: 'val_objH' },
-        { id: 'input_objZ', target: ['obj', 'z'], ui: 'val_objZ' }
+        { id: 'input_objZ', target: ['obj', 'z'], ui: 'val_objZ' },
+        { id: 'input_min_radius', target: ['obj', 'minRadius'], ui: 'val_minRadius' }
       ];
 
       inputs.forEach(cfg => {
@@ -3164,6 +3240,15 @@
       const segmentEl = document.getElementById('obs_segment');
       if (segmentEl) {
         segmentEl.addEventListener('change', updateModalWallLabels);
+      }
+
+      const carrierTypeEl = document.getElementById('input_carrier_type');
+      if (carrierTypeEl) {
+        carrierTypeEl.addEventListener('change', (e) => {
+          state.obj.carrierType = e.target.value;
+          updateCarrierTypeUI();
+          triggerPathRecalculation();
+        });
       }
     }
 
