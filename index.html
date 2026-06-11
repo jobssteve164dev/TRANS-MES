@@ -1349,6 +1349,36 @@
       };
     }
 
+    function isPointInPolygon(p, poly) {
+      let px = p.x, py = p.y;
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        let ix = poly[i].x, iy = poly[i].y;
+        let jx = poly[j].x, jy = poly[j].y;
+        if (((iy > py) !== (jy > py)) && (px < ((jx - ix) * (py - iy)) / (jy - iy) + ix)) {
+          inside = !inside;
+        }
+      }
+      return inside;
+    }
+
+    function isLineSegmentsIntersect(p1, q1, p2, q2) {
+      function ccw(A, B, C) {
+        return (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x);
+      }
+      return ccw(p1, p2, q2) !== ccw(q1, p2, q2) && ccw(p1, q1, p2) !== ccw(p1, q1, q2);
+    }
+
+    function distToSegment(p, p1, p2) {
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const l2 = dx * dx + dy * dy;
+      if (l2 === 0) return Math.hypot(p.x - p1.x, p.y - p1.y);
+      let t = ((p.x - p1.x) * dx + (p.y - p1.y) * dy) / l2;
+      t = Math.max(0, Math.min(1, t));
+      return Math.hypot(p.x - (p1.x + t * dx), p.y - (p1.y + t * dy));
+    }
+
     // --- 4. 碰撞检测 (重构为解耦临时变量版，彻底规避异步竞态死锁) ---
     function getObjectVertices(x, y, theta, objSize) {
       const targetObj = objSize || state.obj;
