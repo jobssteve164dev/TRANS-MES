@@ -1855,15 +1855,35 @@
           let nextX = current.x + move.xoff;
           let nextY = current.y + move.yoff;
 
+          // 1. 终点碰撞与间距检查
           const check = checkCollisionAndGap(nextX, nextY, nextTheta, targetObj);
           if (check.isCollision) continue;
+
+          // 2. 中间点碰撞与间距检查 (防止跨步穿墙/拐角干涉)
+          let midX, midY, midTheta;
+          if (targetObj.carrierType === 'forklift' || targetObj.carrierType === 'fws') {
+            const midMove = getTurnMove(current.theta, move.ds * 0.5, move.dt * 0.5);
+            midX = current.x + midMove.xoff;
+            midY = current.y + midMove.yoff;
+            midTheta = (current.theta + midMove.dt) % (2 * Math.PI);
+            if (midTheta < 0) midTheta += 2 * Math.PI;
+          } else {
+            midX = current.x + move.xoff * 0.5;
+            midY = current.y + move.yoff * 0.5;
+            midTheta = (current.theta + move.dt * 0.5) % (2 * Math.PI);
+            if (midTheta < 0) midTheta += 2 * Math.PI;
+          }
+          const midCheck = checkCollisionAndGap(midX, midY, midTheta, targetObj);
+          if (midCheck.isCollision) continue;
 
           const nextKey = stateKey(nextX, nextY, nextTheta);
           if (closedSet.has(nextKey)) continue;
 
+          // 使用终点和中间点的最小间距来计算代价，远离墙壁
+          const finalMinGap = Math.min(check.minGap, midCheck.minGap);
           let stepCost = Math.abs(move.ds) + Math.abs(move.dt) * 45;
-          if (check.minGap < 35) {
-            stepCost += 280 / (check.minGap + 1.0);
+          if (finalMinGap < 35) {
+            stepCost += 280 / (finalMinGap + 1.0);
           }
 
           const tentativeGScore = gScore.get(curKey) + stepCost;
