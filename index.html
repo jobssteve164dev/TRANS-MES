@@ -1831,10 +1831,16 @@
           ];
         } else {
           moves = [
+            // 直行 / 退行
             { xoff: dynamicDs * Math.cos(current.theta), yoff: dynamicDs * Math.sin(current.theta), dt: 0, ds: dynamicDs },
             { xoff: -dynamicDs * Math.cos(current.theta), yoff: -dynamicDs * Math.sin(current.theta), dt: 0, ds: -dynamicDs },
+            // 横移左 / 横移右 (Omni 独有)
+            { xoff: -dynamicDs * Math.sin(current.theta), yoff: dynamicDs * Math.cos(current.theta), dt: 0, ds: dynamicDs },
+            { xoff: dynamicDs * Math.sin(current.theta), yoff: -dynamicDs * Math.cos(current.theta), dt: 0, ds: dynamicDs },
+            // 原地旋转
             { xoff: 0, yoff: 0, dt: dTheta, ds: 0 },
             { xoff: 0, yoff: 0, dt: -dTheta, ds: 0 },
+            // 复合直行 + 旋转
             { xoff: dynamicDs * Math.cos(current.theta), yoff: dynamicDs * Math.sin(current.theta), dt: dTheta, ds: dynamicDs },
             { xoff: dynamicDs * Math.cos(current.theta), yoff: dynamicDs * Math.sin(current.theta), dt: -dTheta, ds: dynamicDs },
             { xoff: -dynamicDs * Math.cos(current.theta), yoff: -dynamicDs * Math.sin(current.theta), dt: dTheta, ds: -dynamicDs },
